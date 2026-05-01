@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Actor Game (v3)</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="tooltip"></div>
+  <div id="drag-ghost"></div>
+
+  <div id="app">
+    <div id="title-bar">
+      <div class="title-btns">
+        <div class="title-btn"></div>
+      </div>
+      <span class="title-text">The Actor Game</span>
+      <div class="title-btns"></div>
+    </div>
+
+    <div id="main-content">
+
+      <div id="grid-area">
+        <div id="grid"></div>
+      </div>
+
+      <div id="sidebar">
+
+        <!-- Score box: content rendered dynamically -->
+        <div id="score-box" class="inset-box"></div>
+
+        <div id="movie-panel" class="inset-box">
+          <div id="movie-list"></div>
+        </div>
+
+        <div id="controls">
+
+          <!-- Normal mode: all four buttons in order -->
+          <div id="ctrl-normal">
+            <div class="controls-row">
+              <button class="mac-btn mac-btn-full" id="btn-clear">Clear Pointer</button>
+            </div>
+            <div class="controls-row">
+              <button class="mac-btn mac-btn-full" id="btn-merge-titles">Merge Titles</button>
+            </div>
+            <div class="controls-row">
+              <button class="mac-btn mac-btn-full" id="btn-move-actor">Move Actor</button>
+            </div>
+            <div class="controls-row">
+              <button class="mac-btn mac-btn-full" id="btn-restart">Restart</button>
+            </div>
+          </div>
+
+          <!-- Merge mode buttons -->
+          <div id="ctrl-merge" style="display:none">
+            <div class="controls-row">
+              <button class="mac-btn" id="btn-merge-confirm">Merge</button>
+              <button class="mac-btn" id="btn-merge-cancel">Cancel</button>
+            </div>
+          </div>
+
+          <!-- Move mode buttons -->
+          <div id="ctrl-move" style="display:none">
+            <div class="controls-row">
+              <button class="mac-btn mac-btn-full" id="btn-move-cancel">Cancel</button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
