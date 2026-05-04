@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Crazy Billiards</title>
+    <script src="js/jquery-3.3.1.min.js"></script>
+    <script src="js/ballworld.js"></script>
+    <style>
+        body {
+            background-color: #c0c0c0;
+            margin: 8px;
+        }
+        h1 {
+            margin: 0 0 8px 0;
+        }
+        #layout {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        #controls {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex-shrink: 0;
+            font-size: 1.1em;
+        }
+        #controls select {
+            display: block;
+            font-size: 1.3em;
+        }
+        #controls button {
+            display: block;
+            width: 100%;
+        }
+        #btn-clear {
+            margin-top: auto;
+        }
+        canvas {
+            border: 2px inset;
+            display: block;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Crazy Billiards</h1>
+    <div id="layout">
+        <div id="controls">
+            <div>Choose Movement</div>
+            <select id="slt-updatestrategy" multiple="multiple" size="8">
+                <option value="straight" selected>Straight Ahead</option>
+                <option value="rotate">Rotate</option>
+                <option value="dejavu">Deja Vu</option>
+                <option value="shrinkgrow">Shrink/Grow</option>
+                <option value="mowthelawn">Mow The Lawn</option>
+                <option value="drag">Drag</option>
+                <option value="cornergravity">Corner Gravity</option>
+                <option value="wander">Wander</option>
+            </select>
+            <div>Choose Interaction</div>
+            <select id="slt-interactstrategy" multiple="multiple" size="8">
+                <option value="billiard" selected>Billiard Ball</option>
+                <option value="smasher">Smasher</option>
+                <option value="splitter">Splitter</option>
+                <option value="blob">The Blob</option>
+                <option value="swapper">Swapper</option>
+                <option value="nullifier">Nullifier</option>
+                <option value="leader">Leader</option>
+                <option value="repel">Repeller</option>
+            </select>
+            <button id="btn-load-norm">Make Ball</button>
+            <button id="btn-clear">Clear</button>
+        </div>
+        <canvas id="main-canvas" width="800" height="800"></canvas>
+    </div>
+</body>
+</html>
