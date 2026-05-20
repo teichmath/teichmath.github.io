@@ -306,6 +306,52 @@ body {
   padding: 4px 5px 2px 7px;
 }
 
+/* ── How To Play modal ──────────────────────────────────────────────── */
+#how-to-play-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#how-to-play-modal {
+  width: 340px;
+  background: var(--gray);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 3px 3px 0 var(--black);
+}
+
+#how-to-play-title {
+  font-weight: bold;
+  font-size: 12px;
+  text-align: center;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--gray-dark);
+}
+
+#how-to-play-body {
+  font-size: 11px;
+  line-height: 1.7;
+  min-height: 72px;
+  white-space: pre-wrap;
+}
+
+#how-to-play-counter {
+  font-size: 10px;
+  color: var(--gray-darker);
+  text-align: right;
+}
+
+.how-to-play-btns {
+  justify-content: flex-end;
+}
+
 /* ── Scrollbar ──────────────────────────────────────────────────────── */
 #movie-panel::-webkit-scrollbar { width: 14px; }
 #movie-panel::-webkit-scrollbar-track {

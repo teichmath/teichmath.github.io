@@ -69,7 +69,7 @@ async function main() {
     ui.roundTotal    = 0;
     if (moveDragState) { ghost.style.display = 'none'; moveDragState = null; }
     paintDragState = null;
-    titleText.textContent = 'The Actor Game';
+    titleText.textContent = 'Ensembles';
     renderPickMode();
   }
 
@@ -77,7 +77,7 @@ async function main() {
     const raw = await loadData(csvPath);
     game = new ActorGame(raw);
     ui.pickMode = false;
-    titleText.textContent = `The Actor Game: ${setName}`;
+    titleText.textContent = `Ensembles: ${setName}`;
     render();
   }
 
@@ -329,14 +329,60 @@ async function main() {
     }
   });
 
-  // ── Controls ───────────────────────────────────────────────────────────────
+  // ── How To Play modal ──────────────────────────────────────────────────────
 
-  document.getElementById('btn-clear').addEventListener('click', e => {
-    if (!game || ui.pickMode) return;
-    game.disarm();
-    render();
+  const TIPS = [
+    "Select a title from the menu, then paint the monogram of an actor appearing in that title.",
+    "Click and drag to paint/unpaint multiple squares.",
+    "You get 1 point for every correct color on an actor monogram.\n\nYou lose 1 point for every incorrect color on an actor monogram.",
+    "Try making multiple islands of the same color- and notice that you can't! For each color, you can only paint one connected region.",
+    "Try not to overlap colors on squares without monograms. (You lose half a point for each of these overlaps.)",
+    "Hover over an actor monogram to see if the actor is in the selected title (name is shown either bold or gray).",
+    "Reach the minimum number of points to advance to the next level.",
+    "Lifeline 1: You can move an actor monogram to a different square on the grid, but you only get one such move. You can always undo the move and try a different one.",
+    "Lifeline 2: You can merge titles together so that a single color represents all merged titles. You can do any number of merges, and any number of titles per merge.",
+    "Eventually, you'll get to an impossible level, but don't assume you've already reached it- there may be a surprising way to complete a challenging grid.",
+  ];
+
+  let htpTipIdx = 0;
+  const htpOverlay  = document.getElementById('how-to-play-overlay');
+  const htpBody     = document.getElementById('how-to-play-body');
+  const htpCounter  = document.getElementById('how-to-play-counter');
+
+  function htpShow(idx) {
+    htpTipIdx = Math.max(0, Math.min(TIPS.length - 1, idx));
+    htpBody.textContent    = TIPS[htpTipIdx];
+    htpCounter.textContent = `${htpTipIdx + 1} / ${TIPS.length}`;
+    document.getElementById('btn-htp-prev').disabled = htpTipIdx === 0;
+    document.getElementById('btn-htp-next').disabled = htpTipIdx === TIPS.length - 1;
+    htpOverlay.style.display = 'flex';
+  }
+
+  function htpClose() {
+    htpOverlay.style.display = 'none';
+  }
+
+  document.getElementById('btn-how-to-play').addEventListener('click', e => {
+    htpShow(0);
     e.stopPropagation();
   });
+
+  document.getElementById('btn-htp-prev').addEventListener('click', e => {
+    htpShow(htpTipIdx - 1);
+    e.stopPropagation();
+  });
+
+  document.getElementById('btn-htp-next').addEventListener('click', e => {
+    htpShow(htpTipIdx + 1);
+    e.stopPropagation();
+  });
+
+  document.getElementById('btn-htp-exit').addEventListener('click', e => {
+    htpClose();
+    e.stopPropagation();
+  });
+
+  // ── Controls ───────────────────────────────────────────────────────────────
 
   document.getElementById('btn-merge-titles').addEventListener('click', e => {
     if (!game || ui.pickMode) return;
