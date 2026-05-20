@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GANGLAND</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    #terminal-container {
+      padding: 4px;
+      border: 1px solid #222;
+    }
+    #status {
+      color: #444;
+      font-size: 11px;
+      font-family: monospace;
+      margin-top: 4px;
+      text-align: right;
+      width: 100%;
+      max-width: 660px;
+    }
+  </style>
+</head>
+<body>
+  <div id="terminal-container">
+    <div id="terminal"></div>
+  </div>
+  <div id="status">connecting...</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+  <script>
+    // ----------------------------------------------------------------
+    // AFTER deploying to Railway, replace the URL below with your
+    // Railway service URL, e.g.:
+    //   wss://gangland-production.up.railway.app
+    // ----------------------------------------------------------------
+    const BACKEND_URL = 'wss://gangland-production.up.railway.app';
+
+    const RECONNECT_DELAY_MS = 2000;
+
+    const term = new Terminal({
+      cols: 80,
+      rows: 30,
+      theme: {
+        background: '#000000',
+        foreground: '#c0c0c0',
+        cursor:     '#c0c0c0',
+        cursorAccent: '#000000',
+      },
+      fontFamily: '"Courier New", Courier, monospace',
+      fontSize: 16,
+      lineHeight: 1.2,
+      cursorBlink: true,
+      scrollback: 500,
+      disableStdin: false,
+    });
+
+    term.open(document.getElementById('terminal'));
+    term.focus();
+
+    const status = document.getElementById('status');
+    let inputBuffer = '';
+    let ws;
+    let leaving = false;
+
+    // Don't auto-reconnect when the user is actually navigating away
+    window.addEventListener('beforeunload', () => { leaving = true; });
+
+    function connect() {
+      inputBuffer = '';
+      status.textContent = 'connecting...';
+      ws = new WebSocket(BACKEND_URL);
+
+      ws.onopen = () => {
+        status.textContent = 'connected';
+      };
+
+      ws.onmessage = (event) => {
+        // Normalize line endings: LF -> CRLF (required by xterm.js)
+        const text = event.data.replace(/\r?\n/g, '\r\n');
+        term.write(text);
+        term.scrollToBottom();
+      };
+
+      ws.onclose = () => {
+        if (leaving) return;
+        // The Java process exited or there was a network issue — restart
+        status.textContent = 'restarting...';
+        term.write('\r\n\r\n');
+        setTimeout(connect, RECONNECT_DELAY_MS);
+      };
+
+      ws.onerror = () => {
+        // onclose will fire right after and handle the reconnect
+        status.textContent = 'connection error';
+      };
+    }
+
+    term.onKey(({ key, domEvent }) => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+      const code = domEvent.keyCode;
+
+      if (code === 13) {
+        // Enter: send buffered line to server
+        term.write('\r\n');
+        ws.send(inputBuffer);
+        inputBuffer = '';
+      } else if (code === 8) {
+        // Backspace: remove last character from buffer and terminal
+        if (inputBuffer.length > 0) {
+          inputBuffer = inputBuffer.slice(0, -1);
+          term.write('\b \b');
+        }
+      } else if (key.length === 1 && !domEvent.ctrlKey && !domEvent.altKey && !domEvent.metaKey) {
+        // Printable character: echo and buffer it
+        inputBuffer += key;
+        term.write(key);
+      }
+    });
+
+    connect();
+  </script>
+</body>
+</html>

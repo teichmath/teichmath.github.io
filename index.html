@@ -1,91 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ensembles</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alex's Humble Arcade</title>
 </head>
 <body>
 
-  <div id="tooltip"></div>
-  <div id="drag-ghost"></div>
+    <h1>Welcome to the Arcade</h1>
+    <p>Games</p>
 
-  <div id="app">
-    <div id="title-bar">
-      <div class="title-btns"></div>
-      <span class="title-text">Ensembles</span>
-      <div class="title-btns"></div>
-    </div>
+    <ul>
+        <li><a href="actors.html">Ensembles</a></li>
+        <li><a href="billiards/index.html">Crazy Billiards</a></li>
+        <li><a href="gangland/index.html">Gangland</a></li>
+    </ul>
 
-    <div id="main-content">
-
-      <div id="grid-area">
-        <div id="grid"></div>
-      </div>
-
-      <div id="sidebar">
-
-        <!-- Score box: content rendered dynamically -->
-        <div id="score-box" class="inset-box"></div>
-
-        <div id="movie-panel" class="inset-box">
-          <div id="movie-list"></div>
-        </div>
-
-        <div id="controls">
-
-          <!-- Normal mode: all four buttons in order -->
-          <div id="ctrl-normal">
-            <div class="controls-row">
-              <button class="mac-btn mac-btn-full" id="btn-how-to-play">How To Play</button>
-            </div>
-            <div class="controls-row">
-              <button class="mac-btn mac-btn-full" id="btn-merge-titles">Merge Titles</button>
-            </div>
-            <div class="controls-row">
-              <button class="mac-btn mac-btn-full" id="btn-move-actor">Move Actor</button>
-            </div>
-            <div class="controls-row">
-              <button class="mac-btn mac-btn-full" id="btn-restart">Restart</button>
-            </div>
-          </div>
-
-          <!-- Merge mode buttons -->
-          <div id="ctrl-merge" style="display:none">
-            <div class="controls-row">
-              <button class="mac-btn" id="btn-merge-confirm">Merge</button>
-              <button class="mac-btn" id="btn-merge-cancel">Cancel</button>
-            </div>
-          </div>
-
-          <!-- Move mode buttons -->
-          <div id="ctrl-move" style="display:none">
-            <div class="controls-row">
-              <button class="mac-btn mac-btn-full" id="btn-move-cancel">Cancel</button>
-            </div>
-          </div>
-
-        </div>
-
-      </div>
-    </div>
-  </div>
-
-  <!-- How To Play modal -->
-  <div id="how-to-play-overlay" style="display:none">
-    <div id="how-to-play-modal" class="inset-box">
-      <div id="how-to-play-title">How To Play</div>
-      <div id="how-to-play-body"></div>
-      <div id="how-to-play-counter"></div>
-      <div class="controls-row how-to-play-btns">
-        <button class="mac-btn" id="btn-htp-prev">Previous</button>
-        <button class="mac-btn" id="btn-htp-next">Next</button>
-        <button class="mac-btn" id="btn-htp-exit">Exit</button>
-      </div>
-    </div>
-  </div>
-
-  <script type="module" src="js/main.js"></script>
 </body>
 </html>
