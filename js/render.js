@@ -25,15 +25,18 @@ function multiColorBg(colorList) {
 const CURSOR_SCALE = 4;
 const PAD          = 2; // extra canvas pixels so outline doesn't clip at edge
 const CURSOR_SHAPE = [
-  [1,0,0,0,0,0,0,0],
-  [1,1,0,0,0,0,0,0],
-  [1,1,1,0,0,0,0,0],
-  [1,1,1,1,0,0,0,0],
-  [1,1,1,1,1,0,0,0],
-  [1,1,1,1,0,0,0,0],
-  [1,1,1,0,0,0,0,0],
-  [1,1,0,0,0,0,0,0],
-  [1,0,0,0,0,0,0,0],
+  [1,0,0,0,0,0,0,0,0],
+  [1,1,0,0,0,0,0,0,0],
+  [1,1,1,0,0,0,0,0,0],
+  [1,1,1,1,0,0,0,0,0],
+  [1,1,1,1,1,0,0,0,0],
+  [1,1,1,1,1,1,0,0,0],
+  [1,1,1,1,1,1,1,0,0],
+  [1,1,1,1,1,1,1,1,0],
+  [1,1,1,1,1,1,1,1,1],
+  [1,1,1,1,1,1,0,0,0],
+  [1,1,1,1,0,0,0,0,0],
+  [1,0,0,0,0,0,0,0,0],
 ];
 
 let _cursorEl     = null;
@@ -46,7 +49,7 @@ export function initCursor() {
     'position:fixed;top:0;left:0;pointer-events:none;z-index:99999;';
 
   _cursorCanvas = document.createElement('canvas');
-  _cursorCanvas.width  = 8 * CURSOR_SCALE + PAD * 2;
+  _cursorCanvas.width  = 9 * CURSOR_SCALE + PAD * 2;
   _cursorCanvas.height = CURSOR_SHAPE.length * CURSOR_SCALE + PAD * 2;
   _cursorEl.appendChild(_cursorCanvas);
   document.body.appendChild(_cursorEl);

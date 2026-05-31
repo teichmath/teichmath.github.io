@@ -335,6 +335,12 @@ body {
   border-bottom: 1px solid var(--gray-dark);
 }
 
+#htp-canvas {
+  display: block;
+  align-self: center;
+  image-rendering: pixelated;
+}
+
 #how-to-play-body {
   font-size: 11px;
   line-height: 1.7;

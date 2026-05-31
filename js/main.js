@@ -4,6 +4,7 @@ import {
   initCursor, moveCursor, setCursorColor,
   renderAll, renderGrid, renderMovieList, renderControls,
 } from './render.js';
+import { startHtpAnim, stopHtpAnim } from './htp-anim.js';
 
 async function main() {
   initCursor();
@@ -348,6 +349,7 @@ async function main() {
   const htpOverlay  = document.getElementById('how-to-play-overlay');
   const htpBody     = document.getElementById('how-to-play-body');
   const htpCounter  = document.getElementById('how-to-play-counter');
+  const htpCanvas   = document.getElementById('htp-canvas');
 
   function htpShow(idx) {
     htpTipIdx = Math.max(0, Math.min(TIPS.length - 1, idx));
@@ -356,10 +358,12 @@ async function main() {
     document.getElementById('btn-htp-prev').disabled = htpTipIdx === 0;
     document.getElementById('btn-htp-next').disabled = htpTipIdx === TIPS.length - 1;
     htpOverlay.style.display = 'flex';
+    startHtpAnim(htpCanvas, htpTipIdx);
   }
 
   function htpClose() {
     htpOverlay.style.display = 'none';
+    stopHtpAnim();
   }
 
   document.getElementById('btn-how-to-play').addEventListener('click', e => {
