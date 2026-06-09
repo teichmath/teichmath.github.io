@@ -127,7 +127,7 @@ body {
 }
 
 /* ── Main layout ────────────────────────────────────────────────────── */
-#main-content { display: flex; }
+#main-content { display: flex; position: relative; }
 
 /* ── Grid area ──────────────────────────────────────────────────────── */
 #grid-area {
@@ -306,56 +306,65 @@ body {
   padding: 4px 5px 2px 7px;
 }
 
-/* ── How To Play modal ──────────────────────────────────────────────── */
-#how-to-play-overlay {
-  position: fixed;
+/* ── How To Play image overlay ──────────────────────────────────────── */
+#htp-img-overlay {
+  position: absolute;
   inset: 0;
-  z-index: 10000;
-  background: rgba(0, 0, 0, 0.35);
+  z-index: 100;
+  background: var(--gray-light);
   display: flex;
   align-items: center;
   justify-content: center;
+  border-top:    2px solid var(--gray-dark);
+  border-left:   2px solid var(--gray-dark);
+  border-right:  2px solid var(--white);
+  border-bottom: 2px solid var(--white);
 }
 
-#how-to-play-modal {
-  width: 340px;
-  background: var(--gray);
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  box-shadow: 3px 3px 0 var(--black);
-}
-
-#how-to-play-title {
-  font-weight: bold;
-  font-size: 12px;
-  text-align: center;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--gray-dark);
-}
-
-#htp-canvas {
-  display: block;
-  align-self: center;
+#htp-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
   image-rendering: pixelated;
 }
 
-#how-to-play-body {
-  font-size: 11px;
-  line-height: 1.7;
-  min-height: 72px;
-  white-space: pre-wrap;
+/* ── How To Play bottom bar ─────────────────────────────────────────── */
+#htp-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 101;
+  border-top: 2px solid var(--gray-dark);
+  background: var(--gray);
+  padding: 8px 10px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 
-#how-to-play-counter {
+#htp-body {
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  min-height: 36px;
+}
+
+#htp-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#htp-counter {
   font-size: 10px;
   color: var(--gray-darker);
-  text-align: right;
+  flex-shrink: 0;
 }
 
-.how-to-play-btns {
-  justify-content: flex-end;
+#htp-footer .controls-row {
+  flex: 0 0 auto;
 }
 
 /* ── Scrollbar ──────────────────────────────────────────────────────── */

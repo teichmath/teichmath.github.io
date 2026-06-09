@@ -13,9 +13,7 @@
 
   <div id="app">
     <div id="title-bar">
-      <div class="title-btns">
-        <div class="title-btn"></div>
-      </div>
+      <div class="title-btns"></div>
       <span class="title-text">Ensembles</span>
       <div class="title-btns"></div>
     </div>
@@ -24,6 +22,10 @@
 
       <div id="grid-area">
         <div id="grid"></div>
+      </div>
+
+      <div id="htp-img-overlay" style="display:none">
+        <img id="htp-img" alt="">
       </div>
 
       <div id="sidebar">
@@ -71,20 +73,17 @@
         </div>
 
       </div>
-    </div>
-  </div>
 
-  <!-- How To Play modal -->
-  <div id="how-to-play-overlay" style="display:none">
-    <div id="how-to-play-modal" class="inset-box">
-      <div id="how-to-play-title">How To Play</div>
-      <canvas id="htp-canvas"></canvas>
-      <div id="how-to-play-body"></div>
-      <div id="how-to-play-counter"></div>
-      <div class="controls-row how-to-play-btns">
-        <button class="mac-btn" id="btn-htp-prev">Previous</button>
-        <button class="mac-btn" id="btn-htp-next">Next</button>
-        <button class="mac-btn" id="btn-htp-exit">Exit</button>
+      <div id="htp-bar" style="display:none">
+        <div id="htp-body"></div>
+        <div id="htp-footer">
+          <span id="htp-counter"></span>
+          <div class="controls-row">
+            <button class="mac-btn" id="btn-htp-prev">Previous</button>
+            <button class="mac-btn" id="btn-htp-next">Next</button>
+            <button class="mac-btn" id="btn-htp-exit">Exit</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

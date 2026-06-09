@@ -4,10 +4,15 @@ import {
   initCursor, moveCursor, setCursorColor,
   renderAll, renderGrid, renderMovieList, renderControls,
 } from './render.js';
-import { startHtpAnim, stopHtpAnim } from './htp-anim.js';
-
 async function main() {
   initCursor();
+
+  // ── How To Play manifest ───────────────────────────────────────────────────
+  let htpManifest = [];
+  try {
+    const r = await fetch('htp/manifest.json');
+    htpManifest = await r.json();
+  } catch { /* no manifest yet — images simply won't load */ }
 
   let game = null;
 
@@ -330,7 +335,7 @@ async function main() {
     }
   });
 
-  // ── How To Play modal ──────────────────────────────────────────────────────
+  // ── How To Play ────────────────────────────────────────────────────────────
 
   const TIPS = [
     "Select a title from the menu, then paint the monogram of an actor appearing in that title.",
@@ -345,11 +350,37 @@ async function main() {
     "Eventually, you'll get to an impossible level, but don't assume you've already reached it- there may be a surprising way to complete a challenging grid.",
   ];
 
-  let htpTipIdx = 0;
-  const htpOverlay  = document.getElementById('how-to-play-overlay');
-  const htpBody     = document.getElementById('how-to-play-body');
-  const htpCounter  = document.getElementById('how-to-play-counter');
-  const htpCanvas   = document.getElementById('htp-canvas');
+  let htpTipIdx   = 0;
+  let htpImages   = [];
+  let htpImgIdx   = 0;
+  let htpImgTimer = null;
+
+  const htpBar        = document.getElementById('htp-bar');
+  const htpBody       = document.getElementById('htp-body');
+  const htpCounter    = document.getElementById('htp-counter');
+  const htpImgOverlay = document.getElementById('htp-img-overlay');
+  const htpImgEl      = document.getElementById('htp-img');
+
+  async function htpLoadImages(tipIdx) {
+    const count = htpManifest[tipIdx] ?? 0;
+    if (!count) { htpImages = []; return; }
+    const imgs = [];
+    const loads = [];
+    for (let i = 1; i <= count; i++) {
+      const img = new Image();
+      img.src = `htp/${tipIdx}/${i}.png`;
+      loads.push(new Promise(res => { img.onload = img.onerror = res; }));
+      imgs.push(img);
+    }
+    await Promise.all(loads);
+    htpImages = imgs;
+  }
+
+  function htpCycleImage() {
+    if (!htpImages.length) return;
+    htpImgIdx = (htpImgIdx + 1) % htpImages.length;
+    htpImgEl.src = htpImages[htpImgIdx].src;
+  }
 
   function htpShow(idx) {
     htpTipIdx = Math.max(0, Math.min(TIPS.length - 1, idx));
@@ -357,13 +388,28 @@ async function main() {
     htpCounter.textContent = `${htpTipIdx + 1} / ${TIPS.length}`;
     document.getElementById('btn-htp-prev').disabled = htpTipIdx === 0;
     document.getElementById('btn-htp-next').disabled = htpTipIdx === TIPS.length - 1;
-    htpOverlay.style.display = 'flex';
-    startHtpAnim(htpCanvas, htpTipIdx);
+
+    htpBar.style.display        = '';
+    htpImgOverlay.style.display = '';
+
+    if (htpImgTimer) { clearInterval(htpImgTimer); htpImgTimer = null; }
+    htpImgEl.src = '';
+    htpImages    = [];
+    htpImgIdx    = 0;
+
+    htpLoadImages(htpTipIdx).then(() => {
+      if (!htpImages.length) return;
+      htpImgEl.src = htpImages[0].src;
+      if (htpImages.length > 1) htpImgTimer = setInterval(htpCycleImage, 1500);
+    });
   }
 
   function htpClose() {
-    htpOverlay.style.display = 'none';
-    stopHtpAnim();
+    htpBar.style.display        = 'none';
+    htpImgOverlay.style.display = 'none';
+    if (htpImgTimer) { clearInterval(htpImgTimer); htpImgTimer = null; }
+    htpImages    = [];
+    htpImgEl.src = '';
   }
 
   document.getElementById('btn-how-to-play').addEventListener('click', e => {
