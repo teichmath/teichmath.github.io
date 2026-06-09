@@ -25,13 +25,13 @@ function multiColorBg(colorList) {
 const CURSOR_SCALE = 4;
 const PAD          = 2; // extra canvas pixels so outline doesn't clip at edge
 const CURSOR_SHAPE = [
-  [1,0,0,0,0,0,0],
   [1,1,0,0,0,0,0],
-  [1,1,1,0,0,0,0],
+  [1,1,0,0,0,0,0],
   [1,1,1,1,0,0,0],
-  [1,1,1,1,1,0,0],
+  [1,1,1,1,0,0,0],
   [1,1,1,1,1,1,0],
   [1,1,1,1,1,1,0],
+  [1,1,1,1,1,1,1],
   [0,1,1,1,1,1,1],
   [0,1,1,1,1,0,0],
   [0,1,1,0,0,0,0],
