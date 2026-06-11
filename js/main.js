@@ -80,6 +80,7 @@ async function main() {
   }
 
   async function startGame(csvPath, setName) {
+    document.getElementById('htp-pregame').style.display = 'none';
     const raw = await loadData(csvPath);
     game = new ActorGame(raw);
     ui.pickMode = false;
@@ -413,7 +414,16 @@ async function main() {
   }
 
   document.getElementById('btn-how-to-play').addEventListener('click', e => {
-    htpShow(0);
+    if (ui.pickMode) {
+      document.getElementById('htp-pregame').style.display = '';
+    } else {
+      htpShow(0);
+    }
+    e.stopPropagation();
+  });
+
+  document.getElementById('btn-pregame-exit').addEventListener('click', e => {
+    document.getElementById('htp-pregame').style.display = 'none';
     e.stopPropagation();
   });
 

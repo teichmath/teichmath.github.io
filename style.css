@@ -133,6 +133,7 @@ body {
 #grid-area {
   padding: 12px;
   border-right: 2px solid var(--gray-dark);
+  position: relative;
 }
 
 #grid {
@@ -335,12 +336,49 @@ body {
   left: 0;
   width: calc(30px + 10 * var(--cell));
   z-index: 101;
-  border-top: 2px solid var(--gray-dark);
+  border: 1px solid var(--black);
   background: var(--gray);
   padding: 8px 10px 6px;
   display: flex;
   flex-direction: column;
   gap: 5px;
+}
+
+/* ── How To Play pre-game overlay ───────────────────────────────────── */
+#htp-pregame {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  background: var(--gray);
+  border: 1px solid var(--black);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.htp-pregame-arrow {
+  font-size: 28px;
+  text-align: right;
+  line-height: 1;
+}
+
+.htp-pregame-msg {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.htp-set-blurb {
+  font-size: 11px;
+  line-height: 1.6;
+  padding-left: 8px;
+  border-left: 3px solid var(--gray-dark);
+}
+
+#btn-pregame-exit {
+  align-self: flex-end;
+  flex: none;
 }
 
 #htp-body {
