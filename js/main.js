@@ -400,7 +400,7 @@ async function main() {
     htpLoadImages(htpTipIdx).then(() => {
       if (!htpImages.length) return;
       htpImgEl.src = htpImages[0].src;
-      if (htpImages.length > 1) htpImgTimer = setInterval(htpCycleImage, 1500);
+      if (htpImages.length > 1) htpImgTimer = setInterval(htpCycleImage, 400);
     });
   }
 
