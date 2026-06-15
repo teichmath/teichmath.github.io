@@ -201,9 +201,10 @@ function drawCueCursor(ctx, cx, cy) {
 }
 
 function fireImpulse(x, y, strength) {
+    console.log("impulse click x=" + x.toFixed(1) + " y=" + y.toFixed(1) + " angle=" + cueAngle.toFixed(3) + " strength=" + strength);
     $.post(SERVER_URL + "/impulse?sid=" + SESSION_ID,
         { x: x, y: y, angle: cueAngle, strength: strength },
-        function() {}, "json"
+        function() { console.log("impulse ok"); }, "json"
     ).fail(function(xhr) {
         console.warn("Impulse failed:", xhr.status, xhr.statusText);
     });
