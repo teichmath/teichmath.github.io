@@ -204,7 +204,9 @@ function fireImpulse(x, y, strength) {
     $.post(SERVER_URL + "/impulse?sid=" + SESSION_ID,
         { x: x, y: y, angle: cueAngle, strength: strength },
         function() {}, "json"
-    ).fail(showConnectionError);
+    ).fail(function(xhr) {
+        console.warn("Impulse failed:", xhr.status, xhr.statusText);
+    });
 }
 
 // --- Ball world ---
