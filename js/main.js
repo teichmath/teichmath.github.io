@@ -204,6 +204,32 @@ async function main() {
 
   // ── Paint drag state ───────────────────────────────────────────────────────
 
+  // Returns a 4-connected sequence of cell indices from fromIdx to toIdx.
+  // Diagonal interpolation steps are broken into two side-sharing steps.
+  function cellsBetween(fromIdx, toIdx) {
+    const r0 = Math.floor(fromIdx / 10), c0 = fromIdx % 10;
+    const r1 = Math.floor(toIdx   / 10), c1 = toIdx   % 10;
+    const dr = r1 - r0, dc = c1 - c0;
+    const absDr = Math.abs(dr), absDc = Math.abs(dc);
+    const steps = Math.max(absDr, absDc);
+    const cells = [fromIdx];
+    let r = r0, c = c0;
+    for (let i = 1; i <= steps; i++) {
+      const t  = i / steps;
+      const nr = Math.round(r0 + t * dr);
+      const nc = Math.round(c0 + t * dc);
+      if (nr !== r && nc !== c) {
+        // Diagonal step — insert a 4-connected intermediate cell first.
+        // Move along whichever axis has more ground to cover.
+        if (absDr >= absDc) cells.push(nr * 10 + c);
+        else                cells.push(r  * 10 + nc);
+      }
+      r = nr; c = nc;
+      cells.push(r * 10 + c);
+    }
+    return cells.filter((idx, i) => i === 0 || idx !== cells[i - 1]);
+  }
+
   function applyPaint(cellIdx) {
     const cell = game.grid[cellIdx];
     if (paintDragState.erasing) {
@@ -223,14 +249,19 @@ async function main() {
     if (!cellEl) return;
     const idx = Number(cellEl.dataset.idx);
     if (idx === paintDragState.lastCellIdx) return;
+
+    const path = cellsBetween(paintDragState.lastCellIdx, idx);
     paintDragState.lastCellIdx = idx;
 
-    const cell = game.grid[idx];
-    if (paintDragState.erasing && !cell.colors.has(game.armed)) return;
-    if (!paintDragState.erasing && cell.colors.has(game.armed)) return;
-
-    applyPaint(idx);
-    render();
+    let changed = false;
+    for (const cellIdx of path) {
+      const cell = game.grid[cellIdx];
+      if (paintDragState.erasing && !cell.colors.has(game.armed)) continue;
+      if (!paintDragState.erasing && cell.colors.has(game.armed)) continue;
+      applyPaint(cellIdx);
+      changed = true;
+    }
+    if (changed) render();
   }
 
   // ── Grid events ────────────────────────────────────────────────────────────
