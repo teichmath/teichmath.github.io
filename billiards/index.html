@@ -36,10 +36,48 @@
         #btn-clear {
             margin-top: auto;
         }
-        canvas {
-            border: 2px inset;
-            display: block;
+        #canvas-wrapper {
+            position: relative;
             flex-shrink: 0;
+            border: 2px inset;
+            line-height: 0;
+        }
+        canvas {
+            display: block;
+        }
+        #cue-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: none;
+        }
+        #cue-dial {
+            display: block;
+            cursor: crosshair;
+            align-self: center;
+        }
+        #strength-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.85em;
+        }
+        #strength-row input[type=range] {
+            flex: 1;
+            min-width: 0;
+        }
+        #error-msg {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            color: #fff;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px;
+            font-size: 1.1em;
+            line-height: 1.6;
         }
     </style>
 </head>
@@ -70,9 +108,28 @@
                 <option value="repel">Repeller</option>
             </select>
             <button id="btn-load-norm">Make Ball</button>
+            <hr style="width:100%;margin:4px 0">
+            <div>Cue Direction</div>
+            <canvas id="cue-dial" width="80" height="80"></canvas>
+            <div id="strength-row">
+                <span>Weak</span>
+                <input type="range" id="cue-strength" min="1" max="10" value="5">
+                <span>Strong</span>
+            </div>
             <button id="btn-clear">Clear</button>
         </div>
-        <canvas id="main-canvas" width="800" height="800"></canvas>
+        <div id="canvas-wrapper">
+            <canvas id="main-canvas" width="800" height="800"></canvas>
+            <canvas id="cue-overlay" width="800" height="800"></canvas>
+            <div id="error-msg">
+                <div>
+                    <strong>Cannot connect to the game server.</strong><br><br>
+                    Your network or browser is blocking requests to the backend.<br>
+                    This often happens on work or school computers with managed security settings.<br><br>
+                    Try opening this page on a personal device or a non-work network.
+                </div>
+            </div>
+        </div>
     </div>
 </body>
 </html>

@@ -14,6 +14,17 @@ var app;
 var update_values;
 var interact_values;
 var intervalID;
+var consecutiveErrors = 0;
+
+// Cue stick state
+var cueAngle = 0;
+var dialDragging = false;
+
+function showConnectionError() {
+    clearInterval(intervalID);
+    var overlay = document.getElementById("error-msg");
+    if (overlay) overlay.style.display = "flex";
+}
 
 function createApp(canvas) {
     var c = canvas.getContext("2d");
@@ -39,17 +50,164 @@ function createApp(canvas) {
 
 function fitCanvas() {
     var canvas = document.getElementById("main-canvas");
+    var overlay = document.getElementById("cue-overlay");
     var controls = document.getElementById("controls");
     var title = document.querySelector("h1");
-    var availW = window.innerWidth - controls.offsetWidth - 26; // gap + margins
-    var availH = window.innerHeight - title.offsetHeight - 16; // body margins
+    var availW = window.innerWidth - controls.offsetWidth - 26;
+    var availH = window.innerHeight - title.offsetHeight - 16;
     var size = Math.min(availW, availH, 800);
     if (size > 0) {
         canvas.style.width = size + "px";
         canvas.style.height = size + "px";
-        controls.style.height = size + "px";
+        overlay.style.width = size + "px";
+        overlay.style.height = size + "px";
+        controls.style.height = (size + 4) + "px";
     }
 }
+
+// --- Cue dial ---
+
+function initCueDial() {
+    var dial = document.getElementById("cue-dial");
+    drawDial(dial);
+
+    dial.addEventListener("mousedown", function(e) {
+        dialDragging = true;
+        updateDialAngle(dial, e);
+        e.preventDefault();
+    });
+    document.addEventListener("mousemove", function(e) {
+        if (!dialDragging) return;
+        updateDialAngle(dial, e);
+    });
+    document.addEventListener("mouseup", function() {
+        dialDragging = false;
+    });
+}
+
+function updateDialAngle(dial, e) {
+    var rect = dial.getBoundingClientRect();
+    var cx = rect.left + rect.width / 2;
+    var cy = rect.top + rect.height / 2;
+    cueAngle = Math.atan2(e.clientY - cy, e.clientX - cx);
+    drawDial(dial);
+}
+
+function drawDial(dial) {
+    var ctx = dial.getContext("2d");
+    var w = dial.width, h = dial.height;
+    var cx = w / 2, cy = h / 2;
+    var r = Math.min(w, h) / 2 - 3;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Background circle
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = "#2a5c2a";
+    ctx.fill();
+    ctx.strokeStyle = "#aaa";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Tick marks at cardinal directions
+    ctx.strokeStyle = "rgba(255,255,255,0.3)";
+    ctx.lineWidth = 1;
+    [0, Math.PI/2, Math.PI, 3*Math.PI/2].forEach(function(a) {
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * (r - 8), cy + Math.sin(a) * (r - 8));
+        ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+        ctx.stroke();
+    });
+
+    // Arrow shaft
+    var arrowLen = r - 10;
+    var tipX = cx + Math.cos(cueAngle) * arrowLen;
+    var tipY = cy + Math.sin(cueAngle) * arrowLen;
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(tipX, tipY);
+    ctx.stroke();
+
+    // Arrowhead
+    var headLen = 9;
+    var headAngle = Math.PI / 6;
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(tipX - headLen * Math.cos(cueAngle - headAngle),
+               tipY - headLen * Math.sin(cueAngle - headAngle));
+    ctx.lineTo(tipX - headLen * Math.cos(cueAngle + headAngle),
+               tipY - headLen * Math.sin(cueAngle + headAngle));
+    ctx.closePath();
+    ctx.fillStyle = "white";
+    ctx.fill();
+
+    // Center dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fillStyle = "white";
+    ctx.fill();
+}
+
+// --- Cue overlay cursor and click ---
+
+function initCueOverlay() {
+    var overlay = document.getElementById("cue-overlay");
+    var octx = overlay.getContext("2d");
+
+    overlay.addEventListener("mousemove", function(e) {
+        var coords = overlayCoords(overlay, e);
+        drawCueCursor(octx, coords.x, coords.y);
+    });
+
+    overlay.addEventListener("mouseleave", function() {
+        octx.clearRect(0, 0, overlay.width, overlay.height);
+    });
+
+    overlay.addEventListener("click", function(e) {
+        var coords = overlayCoords(overlay, e);
+        var strength = parseInt(document.getElementById("cue-strength").value);
+        fireImpulse(coords.x, coords.y, strength);
+    });
+}
+
+function overlayCoords(overlay, e) {
+    var scaleX = overlay.width / overlay.offsetWidth;
+    var scaleY = overlay.height / overlay.offsetHeight;
+    return { x: e.offsetX * scaleX, y: e.offsetY * scaleY };
+}
+
+function drawCueCursor(ctx, cx, cy) {
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    var strength = parseInt(document.getElementById("cue-strength").value);
+    var capLen = 10;
+    var stickLen = strength * 5 + 10;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(cueAngle);
+
+    // Yellow stick extending backward from the tip
+    ctx.fillStyle = "#FFD700";
+    ctx.fillRect(-(capLen + stickLen), -3, stickLen, 6);
+
+    // White cap at the forward (arrow-head) end
+    ctx.fillStyle = "white";
+    ctx.fillRect(-capLen, -3, capLen, 6);
+
+    ctx.restore();
+}
+
+function fireImpulse(x, y, strength) {
+    $.post(SERVER_URL + "/impulse?sid=" + SESSION_ID,
+        { x: x, y: y, angle: cueAngle, strength: strength },
+        function() {}, "json"
+    ).fail(showConnectionError);
+}
+
+// --- Ball world ---
 
 window.onload = function() {
     $.ajaxSetup({ cache: false });
@@ -58,6 +216,9 @@ window.onload = function() {
     fitCanvas();
     window.addEventListener("resize", fitCanvas);
     intervalID = setInterval(updateBallWorld, 100);
+
+    initCueDial();
+    initCueOverlay();
 
     $("#btn-load-norm").click(function () {
         loadBall();
@@ -72,7 +233,7 @@ function loadBall() {
     $.post(SERVER_URL + "/load?sid=" + SESSION_ID, {switcher: false, updatestrategies: update_values, interactstrategies:
         interact_values}, function (data, status) {
         app.drawBall(data.loc.x, data.loc.y, data.radius, data.color);
-    }, "json");
+    }, "json").fail(showConnectionError);
 }
 
 function setUpValues() {
@@ -95,6 +256,7 @@ function setUpValues() {
 
 function updateBallWorld() {
     $.get(SERVER_URL + "/update?sid=" + SESSION_ID, function(data, status) {
+        consecutiveErrors = 0;
         clear();
         if (data.obs.length > 0) {
             console.log("ball0 loc:", data.obs[0].loc.x, data.obs[0].loc.y, "vel:", data.obs[0].vel ? data.obs[0].vel.x : "?");
@@ -102,7 +264,9 @@ function updateBallWorld() {
         data.obs.forEach(function(element) {
             app.drawBall(element.loc.x, element.loc.y, element.radius, element.color);
         });
-    }, "json");
+    }, "json").fail(function() {
+        if (++consecutiveErrors >= 3) showConnectionError();
+    });
 }
 
 function canvasDims() {
