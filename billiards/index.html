@@ -21,33 +21,32 @@
         #controls {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 5px;
             flex-shrink: 0;
-            font-size: 0.95em;
+            font-size: 0.88em;
+            overflow-y: auto;
         }
         #controls select {
             display: block;
-            font-size: 1.1em;
+            font-size: 1.05em;
+            width: 100%;
         }
         #controls button {
             display: block;
             width: 100%;
         }
-        #btn-clear-balls {
-            margin-top: auto;
-        }
-        #pocket-size-row {
+        fieldset {
+            border: 1px dotted #666;
+            padding: 3px 5px 5px 5px;
+            margin: 0;
             display: flex;
-            gap: 4px;
+            flex-direction: column;
+            gap: 2px;
         }
-        .pocket-btn {
-            flex: 1;
-            padding: 2px 0;
-            font-size: 1em;
-        }
-        .pocket-btn.active {
-            background-color: #4a4;
-            color: white;
+        legend {
+            font-size: 0.95em;
+            font-weight: bold;
+            padding: 0 3px;
         }
         #canvas-wrapper {
             position: relative;
@@ -79,6 +78,23 @@
             flex: 1;
             min-width: 0;
         }
+        #pocket-size-row {
+            display: flex;
+            gap: 3px;
+        }
+        .pocket-btn {
+            flex: 1;
+            padding: 2px 0;
+            font-size: 0.95em;
+        }
+        .pocket-btn.active {
+            background-color: #4a4;
+            color: white;
+        }
+        #btn-pick-up-cue.active {
+            background-color: #44a;
+            color: white;
+        }
         #error-msg {
             display: none;
             position: absolute;
@@ -98,45 +114,67 @@
     <h1>Crazy Billiards</h1>
     <div id="layout">
         <div id="controls">
-            <div>Choose Movement</div>
-            <select id="slt-updatestrategy" multiple="multiple" size="8">
-                <option value="straight" selected>Straight Ahead</option>
-                <option value="rotate">Rotate</option>
-                <option value="dejavu">Deja Vu</option>
-                <option value="shrinkgrow">Shrink/Grow</option>
-                <option value="mowthelawn">Mow The Lawn</option>
-                <option value="drag">Drag</option>
-                <option value="cornergravity">Corner Gravity</option>
-                <option value="wander">Wander</option>
-            </select>
-            <div>Choose Interaction</div>
-            <select id="slt-interactstrategy" multiple="multiple" size="8">
-                <option value="billiard" selected>Billiard Ball</option>
-                <option value="smasher">Smasher</option>
-                <option value="splitter">Splitter</option>
-                <option value="blob">The Blob</option>
-                <option value="swapper">Swapper</option>
-                <option value="nullifier">Nullifier</option>
-                <option value="leader">Leader</option>
-                <option value="repel">Repeller</option>
-            </select>
-            <button id="btn-load-norm">Make Ball</button>
-            <hr style="width:100%;margin:4px 0">
-            <div>Cue Direction</div>
-            <canvas id="cue-dial" width="80" height="80"></canvas>
-            <div id="strength-row">
-                <span>Weak</span>
-                <input type="range" id="cue-strength" min="1" max="15" value="5">
-                <span>Strong</span>
-            </div>
-            <div>Create Pocket</div>
-            <div id="pocket-size-row">
-                <button class="pocket-btn" id="btn-pocket-s" data-radius="20">S</button>
-                <button class="pocket-btn" id="btn-pocket-m" data-radius="35">M</button>
-                <button class="pocket-btn" id="btn-pocket-l" data-radius="50">L</button>
-            </div>
-            <button id="btn-clear-balls">Clear Balls</button>
-            <button id="btn-clear-pockets">Clear Pockets</button>
+            <fieldset>
+                <legend>Ball Controls</legend>
+                <div>Movement</div>
+                <select id="slt-updatestrategy" multiple="multiple" size="7">
+                    <option value="straight" selected>Straight Ahead</option>
+                    <option value="rotate">Rotate</option>
+                    <option value="dejavu">Deja Vu</option>
+                    <option value="shrinkgrow">Shrink/Grow</option>
+                    <option value="mowthelawn">Mow The Lawn</option>
+                    <option value="drag">Drag</option>
+                    <option value="cornergravity">Corner Gravity</option>
+                    <option value="wander">Wander</option>
+                </select>
+                <div>Interaction</div>
+                <select id="slt-interactstrategy" multiple="multiple" size="7">
+                    <option value="billiard" selected>Billiard Ball</option>
+                    <option value="smasher">Smasher</option>
+                    <option value="splitter">Splitter</option>
+                    <option value="blob">The Blob</option>
+                    <option value="swapper">Swapper</option>
+                    <option value="nullifier">Nullifier</option>
+                    <option value="leader">Leader</option>
+                    <option value="repel">Repeller</option>
+                </select>
+                <div>Color</div>
+                <select id="slt-color">
+                    <option value="random" selected>Random</option>
+                    <option value="white">White</option>
+                    <option value="red">Red</option>
+                    <option value="orange">Orange</option>
+                    <option value="yellow">Yellow</option>
+                    <option value="green">Green</option>
+                    <option value="blue">Blue</option>
+                    <option value="purple">Purple</option>
+                    <option value="black">Black</option>
+                </select>
+                <button id="btn-load-norm">Make Ball</button>
+                <button id="btn-clear-balls">Clear Balls</button>
+            </fieldset>
+            <fieldset>
+                <legend>Cue Controls</legend>
+                <div>Cue Direction</div>
+                <canvas id="cue-dial" width="80" height="80"></canvas>
+                <div id="strength-row">
+                    <span>Weak</span>
+                    <input type="range" id="cue-strength" min="1" max="15" value="5">
+                    <span>Strong</span>
+                </div>
+                <button id="btn-pick-up-cue" class="active">Pick Up Cue</button>
+            </fieldset>
+            <fieldset>
+                <legend>Pocket Controls</legend>
+                <div>Create Pocket</div>
+                <div id="pocket-size-row">
+                    <button class="pocket-btn" id="btn-pocket-s"  data-radius="20">S</button>
+                    <button class="pocket-btn" id="btn-pocket-m"  data-radius="35">M</button>
+                    <button class="pocket-btn" id="btn-pocket-l"  data-radius="50">L</button>
+                    <button class="pocket-btn" id="btn-pocket-xl" data-radius="100">XL</button>
+                </div>
+                <button id="btn-clear-pockets">Clear Pockets</button>
+            </fieldset>
         </div>
         <div id="canvas-wrapper">
             <canvas id="main-canvas" width="800" height="800"></canvas>

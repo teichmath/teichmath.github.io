@@ -61,7 +61,7 @@ function createApp(canvas) {
         c.translate(x, y);
         c.rotate(Math.PI / 4);
         c.fillStyle = "black";
-        var sw = Math.max(4, radius * 0.3);
+        var sw = Math.max(2, radius * 0.15);
         for (var i = -radius * 3; i < radius * 3; i += sw * 2) {
             c.fillRect(i, -radius * 2, sw, radius * 4);
         }
@@ -308,25 +308,35 @@ window.onload = function() {
         clearPockets();
     });
 
+    $("#btn-pick-up-cue").click(function () {
+        pocketMode = false;
+        activePocketRadius = 0;
+        $(".pocket-btn").removeClass("active");
+        $(this).addClass("active");
+    });
+
     $(".pocket-btn").click(function () {
         var r = parseInt($(this).data("radius"));
         if (pocketMode && activePocketRadius === r) {
             pocketMode = false;
             activePocketRadius = 0;
             $(".pocket-btn").removeClass("active");
+            $("#btn-pick-up-cue").addClass("active");
         } else {
             pocketMode = true;
             activePocketRadius = r;
             $(".pocket-btn").removeClass("active");
             $(this).addClass("active");
+            $("#btn-pick-up-cue").removeClass("active");
         }
     });
 }
 
 function loadBall() {
     setUpValues();
+    var colorVal = document.getElementById("slt-color").value;
     $.post(SERVER_URL + "/load?sid=" + SESSION_ID, {switcher: false, updatestrategies: update_values, interactstrategies:
-        interact_values}, function (data, status) {
+        interact_values, color: colorVal}, function (data, status) {
         app.drawBall(data.loc.x, data.loc.y, data.radius, data.color);
     }, "json").fail(showConnectionError);
 }
