@@ -23,18 +23,31 @@
             flex-direction: column;
             gap: 4px;
             flex-shrink: 0;
-            font-size: 1.1em;
+            font-size: 0.95em;
         }
         #controls select {
             display: block;
-            font-size: 1.3em;
+            font-size: 1.1em;
         }
         #controls button {
             display: block;
             width: 100%;
         }
-        #btn-clear {
+        #btn-clear-balls {
             margin-top: auto;
+        }
+        #pocket-size-row {
+            display: flex;
+            gap: 4px;
+        }
+        .pocket-btn {
+            flex: 1;
+            padding: 2px 0;
+            font-size: 1em;
+        }
+        .pocket-btn.active {
+            background-color: #4a4;
+            color: white;
         }
         #canvas-wrapper {
             position: relative;
@@ -116,7 +129,14 @@
                 <input type="range" id="cue-strength" min="1" max="15" value="5">
                 <span>Strong</span>
             </div>
-            <button id="btn-clear">Clear</button>
+            <div>Create Pocket</div>
+            <div id="pocket-size-row">
+                <button class="pocket-btn" id="btn-pocket-s" data-radius="20">S</button>
+                <button class="pocket-btn" id="btn-pocket-m" data-radius="35">M</button>
+                <button class="pocket-btn" id="btn-pocket-l" data-radius="50">L</button>
+            </div>
+            <button id="btn-clear-balls">Clear Balls</button>
+            <button id="btn-clear-pockets">Clear Pockets</button>
         </div>
         <div id="canvas-wrapper">
             <canvas id="main-canvas" width="800" height="800"></canvas>

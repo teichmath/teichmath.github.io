@@ -20,6 +20,11 @@ var consecutiveErrors = 0;
 var cueAngle = 0;
 var dialDragging = false;
 
+// Pocket state
+var pocketMode = false;
+var activePocketRadius = 0;
+var knownPockets = [];
+
 function showConnectionError() {
     clearInterval(intervalID);
     var overlay = document.getElementById("error-msg");
@@ -42,8 +47,31 @@ function createApp(canvas) {
         c.clearRect(0, 0, canvas.width, canvas.height);
     }
 
+    var drawPocket = function(x, y, radius, flashColor) {
+        c.save();
+        c.beginPath();
+        c.arc(x, y, radius, 0, Math.PI * 2);
+        c.clip();
+
+        // Background: darker-than-table grey, or flash color
+        c.fillStyle = flashColor || "#a8a8a8";
+        c.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+
+        // Diagonal black stripes at 45° by rotating the coordinate system
+        c.translate(x, y);
+        c.rotate(Math.PI / 4);
+        c.fillStyle = "black";
+        var sw = Math.max(4, radius * 0.3);
+        for (var i = -radius * 3; i < radius * 3; i += sw * 2) {
+            c.fillRect(i, -radius * 2, sw, radius * 4);
+        }
+
+        c.restore();
+    }
+
     return {
         drawBall: drawBall,
+        drawPocket: drawPocket,
         clear: clear
     }
 }
@@ -159,7 +187,11 @@ function initCueOverlay() {
 
     overlay.addEventListener("mousemove", function(e) {
         var coords = overlayCoords(overlay, e);
-        drawCueCursor(octx, coords.x, coords.y);
+        if (pocketMode) {
+            drawPocketCursor(octx, coords.x, coords.y);
+        } else {
+            drawCueCursor(octx, coords.x, coords.y);
+        }
     });
 
     overlay.addEventListener("mouseleave", function() {
@@ -168,8 +200,12 @@ function initCueOverlay() {
 
     overlay.addEventListener("click", function(e) {
         var coords = overlayCoords(overlay, e);
-        var strength = parseInt(document.getElementById("cue-strength").value);
-        fireImpulse(coords.x, coords.y, strength);
+        if (pocketMode) {
+            placePocket(coords.x, coords.y, activePocketRadius);
+        } else {
+            var strength = parseInt(document.getElementById("cue-strength").value);
+            fireImpulse(coords.x, coords.y, strength);
+        }
     });
 }
 
@@ -210,6 +246,45 @@ function fireImpulse(x, y, strength) {
     });
 }
 
+function drawPocketCursor(ctx, cx, cy) {
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    var r = activePocketRadius;
+    var valid = isPocketValid(cx, cy, r);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.strokeStyle = valid ? "white" : "red";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]);
+    ctx.stroke();
+    ctx.restore();
+}
+
+function isPocketValid(x, y, r) {
+    var canvas = document.getElementById("main-canvas");
+    if (x < 0 || x > canvas.width || y < 0 || y > canvas.height) return false;
+    for (var i = 0; i < knownPockets.length; i++) {
+        var p = knownPockets[i];
+        var dx = p.x - x, dy = p.y - y;
+        if (Math.sqrt(dx * dx + dy * dy) < p.radius + r) return false;
+    }
+    return true;
+}
+
+function placePocket(x, y, radius) {
+    if (!isPocketValid(x, y, radius)) return;
+    $.post(SERVER_URL + "/pocket?sid=" + SESSION_ID,
+        { x: x, y: y, radius: radius },
+        function() {}, "json"
+    ).fail(function(xhr) {
+        console.warn("Pocket placement failed:", xhr.status, xhr.statusText);
+    });
+}
+
+function clearPockets() {
+    $.get(SERVER_URL + "/clearpockets?sid=" + SESSION_ID, function() {}, "json");
+}
+
 // --- Ball world ---
 
 window.onload = function() {
@@ -226,8 +301,25 @@ window.onload = function() {
     $("#btn-load-norm").click(function () {
         loadBall();
     });
-    $("#btn-clear").click(function () {
+    $("#btn-clear-balls").click(function () {
         resetBallWorld();
+    });
+    $("#btn-clear-pockets").click(function () {
+        clearPockets();
+    });
+
+    $(".pocket-btn").click(function () {
+        var r = parseInt($(this).data("radius"));
+        if (pocketMode && activePocketRadius === r) {
+            pocketMode = false;
+            activePocketRadius = 0;
+            $(".pocket-btn").removeClass("active");
+        } else {
+            pocketMode = true;
+            activePocketRadius = r;
+            $(".pocket-btn").removeClass("active");
+            $(this).addClass("active");
+        }
     });
 }
 
@@ -261,9 +353,10 @@ function updateBallWorld() {
     $.get(SERVER_URL + "/update?sid=" + SESSION_ID, function(data, status) {
         consecutiveErrors = 0;
         clear();
-        if (data.obs.length > 0) {
-            console.log("ball0 loc:", data.obs[0].loc.x, data.obs[0].loc.y, "vel:", data.obs[0].vel ? data.obs[0].vel.x : "?");
-        }
+        knownPockets = data.pockets || [];
+        knownPockets.forEach(function(p) {
+            app.drawPocket(p.x, p.y, p.radius, p.flashColor || null);
+        });
         data.obs.forEach(function(element) {
             app.drawBall(element.loc.x, element.loc.y, element.radius, element.color);
         });
