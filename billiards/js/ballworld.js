@@ -204,7 +204,8 @@ function initCueOverlay() {
             placePocket(coords.x, coords.y, activePocketRadius);
         } else {
             var strength = parseInt(document.getElementById("cue-strength").value);
-            fireImpulse(coords.x, coords.y, strength);
+            var spin = parseInt(document.getElementById("cue-spin").value) / 10.0;
+            fireImpulse(coords.x, coords.y, strength, spin);
         }
     });
 }
@@ -236,10 +237,11 @@ function drawCueCursor(ctx, cx, cy) {
     ctx.restore();
 }
 
-function fireImpulse(x, y, strength) {
-    console.log("impulse click x=" + x.toFixed(1) + " y=" + y.toFixed(1) + " angle=" + cueAngle.toFixed(3) + " strength=" + strength);
+function fireImpulse(x, y, strength, spin) {
+    spin = spin || 0;
+    console.log("impulse click x=" + x.toFixed(1) + " y=" + y.toFixed(1) + " angle=" + cueAngle.toFixed(3) + " strength=" + strength + " spin=" + spin.toFixed(2));
     $.post(SERVER_URL + "/impulse?sid=" + SESSION_ID,
-        { x: x, y: y, angle: cueAngle, strength: strength },
+        { x: x, y: y, angle: cueAngle, strength: strength, spin: spin },
         function() { console.log("impulse ok"); }, "json"
     ).fail(function(xhr) {
         console.warn("Impulse failed:", xhr.status, xhr.statusText);
