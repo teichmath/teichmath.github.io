@@ -95,6 +95,10 @@
             background-color: #44a;
             color: white;
         }
+        #btn-pick-up-stop.active {
+            background-color: #44a;
+            color: white;
+        }
         #physics-panel {
             flex-shrink: 0;
             width: 270px;
@@ -170,7 +174,7 @@
             <fieldset>
                 <legend>Ball Controls</legend>
                 <div>Movement</div>
-                <select id="slt-updatestrategy" multiple="multiple" size="7">
+                <select id="slt-updatestrategy" size="8">
                     <option value="straight" selected>Straight Ahead</option>
                     <option value="rotate">Rotate</option>
                     <option value="dejavu">Deja Vu</option>
@@ -181,7 +185,7 @@
                     <option value="wander">Wander</option>
                 </select>
                 <div>Interaction</div>
-                <select id="slt-interactstrategy" multiple="multiple" size="7">
+                <select id="slt-interactstrategy" size="8">
                     <option value="billiard" selected>Billiard Ball</option>
                     <option value="smasher">Smasher</option>
                     <option value="splitter">Splitter</option>
@@ -216,6 +220,7 @@
                     <span>Strong</span>
                 </div>
                 <button id="btn-pick-up-cue" class="active">Pick Up Cue</button>
+                <button id="btn-pick-up-stop">Pick Up Stop Tool</button>
             </fieldset>
             <fieldset>
                 <legend>Pocket Controls</legend>

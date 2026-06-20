@@ -23,6 +23,11 @@ var dialDragging = false;
 // Pocket state
 var pocketMode = false;
 var activePocketRadius = 0;
+
+// Stop-tool state
+var stopToolActive = false;
+var stopHolding    = false;
+var STOP_TOOL_RADIUS = 28; // px, must match DispatchAdapter.HOLD_RADIUS
 var knownPockets = [];
 
 function showConnectionError() {
@@ -189,6 +194,9 @@ function initCueOverlay() {
         var coords = overlayCoords(overlay, e);
         if (pocketMode) {
             drawPocketCursor(octx, coords.x, coords.y);
+        } else if (stopToolActive) {
+            drawStopToolCursor(octx, coords.x, coords.y);
+            if (stopHolding) sendHold(true, coords.x, coords.y);
         } else {
             drawCueCursor(octx, coords.x, coords.y);
         }
@@ -198,10 +206,27 @@ function initCueOverlay() {
         octx.clearRect(0, 0, overlay.width, overlay.height);
     });
 
+    overlay.addEventListener("mousedown", function(e) {
+        if (!stopToolActive) return;
+        var coords = overlayCoords(overlay, e);
+        stopHolding = true;
+        sendHold(true, coords.x, coords.y);
+        drawStopToolCursor(octx, coords.x, coords.y);
+    });
+
+    document.addEventListener("mouseup", function() {
+        if (stopHolding) {
+            stopHolding = false;
+            sendHold(false, 0, 0);
+        }
+    });
+
     overlay.addEventListener("click", function(e) {
         var coords = overlayCoords(overlay, e);
         if (pocketMode) {
             placePocket(coords.x, coords.y, activePocketRadius);
+        } else if (stopToolActive) {
+            // handled by mousedown/mouseup
         } else {
             var strength = parseInt(document.getElementById("cue-strength").value);
             fireImpulse(coords.x, coords.y, strength);
@@ -234,6 +259,31 @@ function drawCueCursor(ctx, cx, cy) {
     ctx.fillRect(-capLen, -3, capLen, 6);
 
     ctx.restore();
+}
+
+function drawStopToolCursor(ctx, cx, cy) {
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    var r = STOP_TOOL_RADIUS;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.PI / 8); // flat sides face cardinal directions (stop-sign orientation)
+    ctx.beginPath();
+    for (var i = 0; i < 8; i++) {
+        var a = (2 * Math.PI * i) / 8;
+        if (i === 0) ctx.moveTo(r * Math.cos(a), r * Math.sin(a));
+        else         ctx.lineTo(r * Math.cos(a), r * Math.sin(a));
+    }
+    ctx.closePath();
+    ctx.fillStyle   = stopHolding ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.45)";
+    ctx.strokeStyle = "rgba(180,180,180,0.95)";
+    ctx.lineWidth   = 2;
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+}
+
+function sendHold(active, x, y) {
+    $.post(SERVER_URL + "/hold?sid=" + SESSION_ID, { active: active, x: x, y: y });
 }
 
 function fireImpulse(x, y, strength) {
@@ -415,13 +465,35 @@ window.onload = function() {
     });
 
     $("#btn-pick-up-cue").click(function () {
+        stopToolActive = false;
+        if (stopHolding) { stopHolding = false; sendHold(false, 0, 0); }
+        $("#btn-pick-up-stop").removeClass("active");
         pocketMode = false;
         activePocketRadius = 0;
         $(".pocket-btn").removeClass("active");
         $(this).addClass("active");
     });
 
+    $("#btn-pick-up-stop").click(function () {
+        if (stopToolActive) {
+            stopToolActive = false;
+            if (stopHolding) { stopHolding = false; sendHold(false, 0, 0); }
+            $(this).removeClass("active");
+            $("#btn-pick-up-cue").addClass("active");
+        } else {
+            stopToolActive = true;
+            pocketMode = false;
+            activePocketRadius = 0;
+            $(".pocket-btn").removeClass("active");
+            $("#btn-pick-up-cue").removeClass("active");
+            $(this).addClass("active");
+        }
+    });
+
     $(".pocket-btn").click(function () {
+        stopToolActive = false;
+        if (stopHolding) { stopHolding = false; sendHold(false, 0, 0); }
+        $("#btn-pick-up-stop").removeClass("active");
         var r = parseInt($(this).data("radius"));
         if (pocketMode && activePocketRadius === r) {
             pocketMode = false;
@@ -448,21 +520,10 @@ function loadBall() {
 }
 
 function setUpValues() {
-    update_values = "";
-    interact_values = "";
-
-    var slts = ["slt-updatestrategy", "slt-interactstrategy"];
-    var my_choices;
-
-    for (var i = 0; i < 2; i++) {
-        my_choices = document.getElementById(slts[i]);
-        for (var j = 0; j < my_choices.length; j++) {
-            if (my_choices[j].selected === true) {
-                if (i === 0) update_values += my_choices[j].value + " ";
-                else interact_values += my_choices[j].value + " ";
-            }
-        }
-    }
+    var upSlt = document.getElementById("slt-updatestrategy");
+    var inSlt = document.getElementById("slt-interactstrategy");
+    update_values  = upSlt.value  + " ";
+    interact_values = inSlt.value + " ";
 }
 
 function updateBallWorld() {
