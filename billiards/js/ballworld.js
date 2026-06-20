@@ -67,7 +67,7 @@ function createApp(canvas) {
         c.translate(x, y);
         c.rotate(Math.PI / 4);
         c.fillStyle = "black";
-        var sw = Math.max(2, radius * 0.15);
+        var sw = 6.375;
         for (var i = -radius * 3; i < radius * 3; i += sw * 2) {
             c.fillRect(i, -radius * 2, sw, radius * 4);
         }
@@ -283,6 +283,16 @@ function drawStopToolCursor(ctx, cx, cy) {
     ctx.fill();
     ctx.stroke();
     ctx.restore();
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.font = "bold 9px sans-serif";
+    ctx.fillStyle = "rgba(60,60,60,0.9)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.letterSpacing = "2px";
+    ctx.fillText("STOP", 0, 0);
+    ctx.restore();
 }
 
 function sendHold(active, x, y) {
@@ -340,120 +350,14 @@ function clearPockets() {
 
 // --- Ball world ---
 
-var PHYSICS_SLIDERS = [
-    {
-        group: "Cloth Friction",
-        params: [
-            { id: "gEff",  label: "G_EFF",  min: 0.1, max: 5.0,  step: 0.1,   def: 1.0,
-              desc: "Deceleration scale — master multiplier for how aggressively friction acts on the ball." },
-            { id: "muK",   label: "MU_K",   min: 0.01, max: 1.0, step: 0.01,  def: 0.3,
-              desc: "Sliding friction — how quickly a newly-struck ball spins up to a pure roll." },
-            { id: "muR",   label: "MU_R",   min: 0.005, max: 0.5, step: 0.005, def: 0.1,
-              desc: "Rolling friction — how slowly a rolling ball coasts to a stop." },
-            { id: "muS",   label: "MU_S",   min: 0.005, max: 0.3, step: 0.005, def: 0.05,
-              desc: "Spin decay — how quickly side-spin dissipates against the cloth." }
-        ]
-    },
-    {
-        group: "Rail / Cushion",
-        params: [
-            { id: "eps",   label: "EPS",    min: 0.1, max: 1.0,  step: 0.05,  def: 0.7,
-              desc: "Rail restitution — fraction of normal speed kept after hitting a cushion. 0 = dead, 1 = full bounce." },
-            { id: "muC",   label: "MU_C",   min: 0.0, max: 0.5,  step: 0.01,  def: 0.1,
-              desc: "Rail friction — how much parallel (along-cushion) speed is scrubbed off on contact." },
-            { id: "gamma", label: "GAMMA",  min: 0.0, max: 0.5,  step: 0.01,  def: 0.15,
-              desc: "Rail spin kick — how much existing side-spin deflects the ball sideways off the rail." },
-            { id: "beta",  label: "BETA",   min: 0.0, max: 1.0,  step: 0.05,  def: 0.5,
-              desc: "Rail spin drain — fraction of side-spin absorbed by the cushion on contact." }
-        ]
-    },
-    {
-        group: "Ball-on-Ball",
-        params: [
-            { id: "eBall",  label: "E_BALL",  min: 0.5, max: 1.0, step: 0.01,  def: 0.95,
-              desc: "Ball restitution — how elastic ball-to-ball collisions are." },
-            { id: "muB",    label: "MU_B",    min: 0.0, max: 0.2, step: 0.005, def: 0.04,
-              desc: "Throw friction — how much an angled hit deflects the struck ball sideways (even without spin)." },
-            { id: "alphaB", label: "ALPHA_B", min: 0.0, max: 1.0, step: 0.05,  def: 0.5,
-              desc: "Spin throw — how much the striking ball's side-spin drives the throw deflection." }
-        ]
-    },
-    {
-        group: "Cue",
-        params: [
-            { id: "cueScale", label: "CUE_SCALE", min: 1.0, max: 20.0, step: 0.5, def: 5.0,
-              desc: "Cue power — sets the absolute speed of the 'Strong' end of the cue slider." }
-        ]
-    }
-];
-
-function buildPhysicsPanel() {
-    var panel = document.getElementById("physics-panel");
-    PHYSICS_SLIDERS.forEach(function(group) {
-        var groupDiv = document.createElement("div");
-        groupDiv.className = "phys-group";
-        var title = document.createElement("div");
-        title.className = "phys-group-title";
-        title.textContent = group.group;
-        groupDiv.appendChild(title);
-
-        group.params.forEach(function(p) {
-            var row = document.createElement("div");
-            row.className = "phys-row";
-
-            var header = document.createElement("div");
-            header.className = "phys-header";
-            var nameSpan = document.createElement("span");
-            nameSpan.className = "phys-name";
-            nameSpan.textContent = p.label;
-            var valSpan = document.createElement("span");
-            valSpan.className = "phys-val";
-            valSpan.id = "pval-" + p.id;
-            valSpan.textContent = p.def;
-            header.appendChild(nameSpan);
-            header.appendChild(valSpan);
-
-            var slider = document.createElement("input");
-            slider.type = "range";
-            slider.min = p.min;
-            slider.max = p.max;
-            slider.step = p.step;
-            slider.value = p.def;
-            slider.id = "pcfg-" + p.id;
-            slider.addEventListener("input", function() {
-                var v = parseFloat(this.value);
-                document.getElementById("pval-" + p.id).textContent = v;
-                sendPhysicsParam(p.id, v);
-            });
-
-            var desc = document.createElement("div");
-            desc.className = "phys-desc";
-            desc.textContent = p.desc;
-
-            row.appendChild(header);
-            row.appendChild(slider);
-            row.appendChild(desc);
-            groupDiv.appendChild(row);
-        });
-
-        panel.appendChild(groupDiv);
-    });
-}
-
-function sendPhysicsParam(paramId, value) {
-    $.post(SERVER_URL + "/config", paramId + "=" + value)
-        .fail(function() { console.warn("config update failed for " + paramId); });
-}
-
 window.onload = function() {
     $.ajaxSetup({ cache: false });
     app = createApp(document.getElementById("main-canvas"));
     canvasDims();
     fitCanvas();
     window.addEventListener("resize", fitCanvas);
-    intervalID = setInterval(updateBallWorld, 20);
+    intervalID = setInterval(updateBallWorld, 33);
 
-    buildPhysicsPanel();
     initCueDial();
     initCueOverlay();
 

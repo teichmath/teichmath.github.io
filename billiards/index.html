@@ -99,59 +99,6 @@
             background-color: #44a;
             color: white;
         }
-        #physics-panel {
-            flex-shrink: 0;
-            width: 270px;
-            max-height: 800px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            font-size: 0.8em;
-        }
-        #physics-panel h3 {
-            margin: 0 0 2px 0;
-            font-size: 1.05em;
-        }
-        .phys-group {
-            border: 1px dotted #666;
-            padding: 3px 5px 5px 5px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .phys-group-title {
-            font-weight: bold;
-            font-size: 0.95em;
-            color: #333;
-            margin-bottom: 1px;
-        }
-        .phys-row {
-            display: flex;
-            flex-direction: column;
-            gap: 1px;
-        }
-        .phys-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-        }
-        .phys-name {
-            font-weight: bold;
-            font-family: monospace;
-        }
-        .phys-val {
-            font-family: monospace;
-            color: #222;
-        }
-        .phys-row input[type=range] {
-            width: 100%;
-            margin: 0;
-        }
-        .phys-desc {
-            color: #555;
-            line-height: 1.3;
-        }
         #error-msg {
             display: none;
             position: absolute;
@@ -191,9 +138,9 @@
                     <option value="splitter">Splitter</option>
                     <option value="blob">The Blob</option>
                     <option value="swapper">Swapper</option>
-                    <option value="nullifier">Nullifier</option>
-                    <option value="leader">Leader</option>
-                    <option value="repel">Repeller</option>
+                    <option value="nullifier">Killer</option>
+                    <option value="leader">Celebrity</option>
+                    <option value="repel">Troll</option>
                 </select>
                 <div>Color</div>
                 <select id="slt-color">
@@ -245,9 +192,6 @@
                     Try opening this page on a personal device or a non-work network.
                 </div>
             </div>
-        </div>
-        <div id="physics-panel">
-            <h3>Physics Tuning</h3>
         </div>
     </div>
 </body>
