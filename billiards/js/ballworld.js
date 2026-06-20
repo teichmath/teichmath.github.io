@@ -398,7 +398,7 @@ window.onload = function() {
     canvasDims();
     fitCanvas();
     window.addEventListener("resize", fitCanvas);
-    intervalID = setInterval(updateBallWorld, 100);
+    intervalID = setInterval(updateBallWorld, 20);
 
     buildPhysicsPanel();
     initCueDial();
