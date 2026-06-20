@@ -13,7 +13,7 @@ if (!SESSION_ID) {
 var app;
 var update_values;
 var interact_values;
-var intervalID;
+var updateRunning = false;
 var consecutiveErrors = 0;
 
 // Cue stick state
@@ -32,7 +32,7 @@ var STOP_TOOL_RADIUS = 28; // px, must match DispatchAdapter.HOLD_RADIUS
 var knownPockets = [];
 
 function showConnectionError() {
-    clearInterval(intervalID);
+    updateRunning = false;
     var overlay = document.getElementById("error-msg");
     if (overlay) overlay.style.display = "flex";
 }
@@ -356,7 +356,8 @@ window.onload = function() {
     canvasDims();
     fitCanvas();
     window.addEventListener("resize", fitCanvas);
-    intervalID = setInterval(updateBallWorld, 33);
+    updateRunning = true;
+    updateBallWorld();
 
     initCueDial();
     initCueOverlay();
@@ -446,8 +447,10 @@ function updateBallWorld() {
         data.obs.forEach(function(element) {
             app.drawBall(element.loc.x, element.loc.y, element.radius, element.color);
         });
+        if (updateRunning) setTimeout(updateBallWorld, 50);
     }, "json").fail(function() {
         if (++consecutiveErrors >= 3) showConnectionError();
+        else if (updateRunning) setTimeout(updateBallWorld, 500);
     });
 }
 
