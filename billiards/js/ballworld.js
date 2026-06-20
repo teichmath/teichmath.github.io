@@ -27,6 +27,7 @@ var activePocketRadius = 0;
 // Stop-tool state
 var stopToolActive = false;
 var stopHolding    = false;
+var lastHoldX = 0, lastHoldY = 0;
 var STOP_TOOL_RADIUS = 28; // px, must match DispatchAdapter.HOLD_RADIUS
 var knownPockets = [];
 
@@ -195,8 +196,9 @@ function initCueOverlay() {
         if (pocketMode) {
             drawPocketCursor(octx, coords.x, coords.y);
         } else if (stopToolActive) {
+            lastHoldX = coords.x;
+            lastHoldY = coords.y;
             drawStopToolCursor(octx, coords.x, coords.y);
-            if (stopHolding) sendHold(true, coords.x, coords.y);
         } else {
             drawCueCursor(octx, coords.x, coords.y);
         }
@@ -209,8 +211,9 @@ function initCueOverlay() {
     overlay.addEventListener("mousedown", function(e) {
         if (!stopToolActive) return;
         var coords = overlayCoords(overlay, e);
+        lastHoldX = coords.x;
+        lastHoldY = coords.y;
         stopHolding = true;
-        sendHold(true, coords.x, coords.y);
         drawStopToolCursor(octx, coords.x, coords.y);
     });
 
@@ -527,7 +530,9 @@ function setUpValues() {
 }
 
 function updateBallWorld() {
-    $.get(SERVER_URL + "/update?sid=" + SESSION_ID, function(data, status) {
+    var url = SERVER_URL + "/update?sid=" + SESSION_ID;
+    if (stopHolding) url += "&hold=true&holdX=" + lastHoldX.toFixed(1) + "&holdY=" + lastHoldY.toFixed(1);
+    $.get(url, function(data, status) {
         consecutiveErrors = 0;
         clear();
         knownPockets = data.pockets || [];
