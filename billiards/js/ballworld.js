@@ -447,7 +447,7 @@ function updateBallWorld() {
         data.obs.forEach(function(element) {
             app.drawBall(element.loc.x, element.loc.y, element.radius, element.color);
         });
-        if (updateRunning) setTimeout(updateBallWorld, 50);
+        if (updateRunning) setTimeout(updateBallWorld, 16);
     }, "json").fail(function() {
         if (++consecutiveErrors >= 3) showConnectionError();
         else if (updateRunning) setTimeout(updateBallWorld, 500);
