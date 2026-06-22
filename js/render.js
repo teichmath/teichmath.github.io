@@ -234,16 +234,29 @@ export function renderMovieList(snap, ui) {
 
 // ── Controls visibility ───────────────────────────────────────────────────────
 
-export function renderControls(ui) {
+export function renderControls(ui, snap = null) {
   const anyModal = ui.mergeMode || ui.moveMode;
   document.getElementById('ctrl-normal').style.display = anyModal ? 'none' : '';
   document.getElementById('ctrl-merge').style.display  = ui.mergeMode ? '' : 'none';
   document.getElementById('ctrl-move').style.display   = ui.moveMode  ? '' : 'none';
 
-  // Update Move Actor button label in normal mode
   if (!anyModal) {
-    const btn = document.getElementById('btn-move-actor');
-    if (btn) btn.textContent = ui.moveRecord ? 'Undo Move Actor' : 'Move Actor';
+    const level = snap ? snap.level : 0;
+    const btnMove    = document.getElementById('btn-move-actor');
+    const btnUndo    = document.getElementById('btn-undo-moves');
+    const bankDisplay = document.getElementById('move-bank-display');
+
+    if (btnMove) btnMove.disabled = !(ui.moveBank > 0 && level >= 5);
+    if (btnUndo) btnUndo.disabled = !(ui.movedActors && ui.movedActors.size > 0);
+
+    if (bankDisplay) {
+      if (level >= 5) {
+        bankDisplay.textContent = `Actor Move Bank: ${ui.moveBank}`;
+        bankDisplay.style.display = '';
+      } else {
+        bankDisplay.style.display = 'none';
+      }
+    }
   }
 }
 
@@ -262,7 +275,7 @@ export function renderAll(snap, ui = { mergeMode: false, mergeSelected: new Set(
     renderMovieList(snap, ui);
   }
 
-  renderControls(ui);
+  renderControls(ui, snap);
   setCursorColor(snap.armed !== null
     ? snap.groupsList.find(g => g.gid === snap.armed)?.color ?? null
     : null);

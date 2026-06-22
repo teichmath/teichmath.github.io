@@ -307,6 +307,22 @@ body {
   padding: 4px 5px 2px 7px;
 }
 
+.mac-btn:disabled {
+  color: var(--gray-dark);
+  box-shadow: none;
+  border-top:    2px solid var(--gray-light);
+  border-left:   2px solid var(--gray-light);
+  border-right:  2px solid var(--gray-dark);
+  border-bottom: 2px solid var(--gray-dark);
+}
+
+#move-bank-display {
+  font-size: 10px;
+  color: var(--gray-darker);
+  text-align: center;
+  padding: 3px 0 1px;
+}
+
 /* ── How To Play image overlay ──────────────────────────────────────── */
 #htp-img-overlay {
   position: absolute;

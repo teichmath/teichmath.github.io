@@ -20,7 +20,8 @@ async function main() {
     mergeMode:     false,
     mergeSelected: new Set(),
     moveMode:      false,
-    moveRecord:    null,
+    movedActors:   new Map(),  // actorIdx -> { fromCell, toCell }
+    moveBank:      0,
     roundTotal:    0,
     pickMode:      true,
   };
@@ -71,7 +72,8 @@ async function main() {
     ui.mergeMode     = false;
     ui.mergeSelected = new Set();
     ui.moveMode      = false;
-    ui.moveRecord    = null;
+    ui.movedActors   = new Map();
+    ui.moveBank      = 0;
     ui.roundTotal    = 0;
     if (moveDragState) { ghost.style.display = 'none'; moveDragState = null; }
     paintDragState = null;
@@ -194,8 +196,21 @@ async function main() {
       const toIdx = cellIdxAtPoint(x, y);
       if (toIdx !== null && toIdx !== moveDragState.fromIdx && game.grid[toIdx].actorIdx === null) {
         game.simpleMoveActor(moveDragState.fromIdx, toIdx);
-        ui.moveRecord = { actorIdx: moveDragState.actorIdx, fromCell: moveDragState.fromIdx, toCell: toIdx };
-        ui.moveMode   = false;
+        const { actorIdx, fromIdx } = moveDragState;
+        const existing = ui.movedActors.get(actorIdx);
+        if (existing) {
+          if (toIdx === existing.fromCell) {
+            // Dragged back to original position — treat as unmoved, refund bank point
+            ui.movedActors.delete(actorIdx);
+            ui.moveBank += 1;
+          } else {
+            existing.toCell = toIdx;
+          }
+        } else {
+          ui.movedActors.set(actorIdx, { fromCell: fromIdx, toCell: toIdx });
+          ui.moveBank -= 1;
+        }
+        ui.moveMode = false;
       }
     }
     moveDragState = null;
@@ -355,14 +370,16 @@ async function main() {
   document.getElementById('score-box').addEventListener('click', e => {
     if (!game || ui.pickMode) return;
     if (e.target.id === 'btn-next-level') {
-      ui.roundTotal += game.snapshot().score;
-      ui.moveRecord = null;
+      ui.roundTotal   += game.snapshot().score;
+      ui.movedActors   = new Map();
       const ok = game.advanceLevel();
       if (!ok) {
         document.getElementById('score-box').innerHTML =
           '<div class="score-level">All actors used — well done!</div>';
         return;
       }
+      const newLevel = game.snapshot().level;
+      if (newLevel >= 5 && newLevel % 2 === 1) ui.moveBank += 1;
       render();
     }
   });
@@ -485,13 +502,21 @@ async function main() {
 
   document.getElementById('btn-move-actor').addEventListener('click', e => {
     if (!game || ui.pickMode) return;
-    if (ui.moveRecord) {
-      game.simpleMoveActor(ui.moveRecord.toCell, ui.moveRecord.fromCell);
-      ui.moveRecord = null;
-    } else {
-      ui.moveMode = true;
-      game.disarm();
+    if (ui.moveBank <= 0) return;
+    ui.moveMode = true;
+    game.disarm();
+    render();
+    e.stopPropagation();
+  });
+
+  document.getElementById('btn-undo-moves').addEventListener('click', e => {
+    if (!game || ui.pickMode) return;
+    for (const [, { fromCell, toCell }] of ui.movedActors) {
+      game.simpleMoveActor(toCell, fromCell);
+      ui.moveBank += 1;
     }
+    ui.movedActors = new Map();
+    if (moveDragState) { ghost.style.display = 'none'; moveDragState = null; }
     render();
     e.stopPropagation();
   });
