@@ -379,7 +379,7 @@ async function main() {
         return;
       }
       const newLevel = game.snapshot().level;
-      if (newLevel >= 5 && newLevel % 2 === 1) ui.moveBank += 1;
+      if (newLevel >= 5) ui.moveBank += 1;
       render();
     }
   });
