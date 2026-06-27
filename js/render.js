@@ -89,7 +89,7 @@ function _drawCursorCanvas(fill) {
 
 // ── Grid ──────────────────────────────────────────────────────────────────────
 
-export function renderGrid(snap) {
+export function renderGrid(snap, ui = null) {
   const container = document.getElementById('grid');
 
   if (container.children.length !== 100) {
@@ -101,12 +101,31 @@ export function renderGrid(snap) {
       const bg   = document.createElement('div');   bg.className = 'cell-bg';
       const bdr  = document.createElement('div');  bdr.className = 'cell-border';
       const mono = document.createElement('span'); mono.className = 'monogram';
-      div.append(bg, bdr, mono);
+      const deg  = document.createElement('span'); deg.className = 'cell-degree';
+      div.append(bg, bdr, mono, deg);
       container.appendChild(div);
     }
   }
 
   const { grid, actors, groupsList, monos, armed } = snap;
+
+  // Pre-compute actor degrees when needed
+  let actorDegrees = null;
+  if (ui?.showDegrees && actors.length > 0) {
+    actorDegrees = {};
+    for (let i = 0; i < actors.length; i++) {
+      const ab = actors[i].activeBits;
+      let count = 0;
+      if (ab) {
+        for (const g of groupsList) {
+          for (const mIdx of g.movieIndices) {
+            if (ab[mIdx]) count++;
+          }
+        }
+      }
+      actorDegrees[i] = count;
+    }
+  }
 
   // Build gid->color map
   const gidColor = {};
@@ -119,6 +138,7 @@ export function renderGrid(snap) {
     const bgEl   = div.querySelector('.cell-bg');
     const bdrEl  = div.querySelector('.cell-border');
     const monoEl = div.querySelector('.monogram');
+    const degEl  = div.querySelector('.cell-degree');
 
     const colorList = [...cell.colors].map(gid => gidColor[gid]).filter(Boolean);
     bgEl.style.background = multiColorBg(colorList) || '';
@@ -132,6 +152,15 @@ export function renderGrid(snap) {
     }
 
     monoEl.textContent = cell.actorIdx !== null ? monos[cell.actorIdx] : '';
+
+    if (degEl) {
+      if (cell.actorIdx !== null && actorDegrees) {
+        degEl.textContent   = actorDegrees[cell.actorIdx];
+        degEl.style.display = '';
+      } else {
+        degEl.style.display = 'none';
+      }
+    }
   }
 }
 
@@ -205,6 +234,19 @@ export function renderMovieList(snap, ui) {
     label.textContent = g.titles[0];
 
     header.append(swatch, label);
+
+    if (ui.showDegrees) {
+      let count = 0;
+      for (const cell of snap.grid) {
+        if (cell.actorIdx === null) continue;
+        const ab = snap.actors[cell.actorIdx].activeBits;
+        if (ab && g.movieIndices.some(mIdx => ab[mIdx])) count++;
+      }
+      const degSpan = document.createElement('span');
+      degSpan.className   = 'movie-degree';
+      degSpan.textContent = count;
+      header.appendChild(degSpan);
+    }
     wrapper.appendChild(header);
 
     // Tree for merged members
@@ -232,6 +274,76 @@ export function renderMovieList(snap, ui) {
   }
 }
 
+// ── Move indicators (SVG overlay) ─────────────────────────────────────────────
+
+export function renderMoveIndicators(snap, ui) {
+  const gridAreaEl = document.getElementById('grid-area');
+  const gridEl     = document.getElementById('grid');
+  const existing   = document.getElementById('grid-move-overlay');
+
+  if (!ui.moveMode || ui.movedActors.size === 0) {
+    if (existing) existing.remove();
+    return;
+  }
+
+  const svg = existing || (() => {
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.id = 'grid-move-overlay';
+    s.style.position      = 'absolute';
+    s.style.pointerEvents = 'none';
+    s.style.zIndex        = '3';
+    gridAreaEl.appendChild(s);
+    return s;
+  })();
+
+  const gridRect = gridEl.getBoundingClientRect();
+  const areaRect = gridAreaEl.getBoundingClientRect();
+  svg.style.left = (gridRect.left - areaRect.left) + 'px';
+  svg.style.top  = (gridRect.top  - areaRect.top)  + 'px';
+
+  const W = gridEl.offsetWidth;
+  const H = gridEl.offsetHeight;
+  svg.setAttribute('width',   W);
+  svg.setAttribute('height',  H);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = '';
+
+  const border = 2;
+  const cellW  = (W - border * 2) / 10;
+  const cellH  = (H - border * 2) / 10;
+
+  function center(i) {
+    const row = Math.floor(i / 10), col = i % 10;
+    return { x: border + col * cellW + cellW / 2, y: border + row * cellH + cellH / 2 };
+  }
+
+  const NS = 'http://www.w3.org/2000/svg';
+  for (const [, { fromCell, toCell }] of ui.movedActors) {
+    const from = center(fromCell);
+    const to   = center(toCell);
+
+    const line = document.createElementNS(NS, 'line');
+    line.setAttribute('x1', to.x);   line.setAttribute('y1', to.y);
+    line.setAttribute('x2', from.x); line.setAttribute('y2', from.y);
+    line.setAttribute('stroke', 'white');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-dasharray', '5 4');
+    line.setAttribute('opacity', '0.85');
+    svg.appendChild(line);
+
+    const col = toCell % 10, row = Math.floor(toCell / 10);
+    const rect = document.createElementNS(NS, 'rect');
+    rect.setAttribute('x',      border + col * cellW + 2);
+    rect.setAttribute('y',      border + row * cellH + 2);
+    rect.setAttribute('width',  cellW - 4);
+    rect.setAttribute('height', cellH - 4);
+    rect.setAttribute('fill',   'none');
+    rect.setAttribute('stroke', 'white');
+    rect.setAttribute('stroke-width', '2.5');
+    svg.appendChild(rect);
+  }
+}
+
 // ── Controls visibility ───────────────────────────────────────────────────────
 
 export function renderControls(ui, snap = null) {
@@ -241,13 +353,16 @@ export function renderControls(ui, snap = null) {
   document.getElementById('ctrl-move').style.display   = ui.moveMode  ? '' : 'none';
 
   if (!anyModal) {
-    const level = snap ? snap.level : 0;
-    const btnMove    = document.getElementById('btn-move-actor');
-    const btnUndo    = document.getElementById('btn-undo-moves');
+    const level       = snap ? snap.level : 0;
+    const btnMove     = document.getElementById('btn-move-actor');
+    const btnDegrees  = document.getElementById('btn-see-degrees');
     const bankDisplay = document.getElementById('move-bank-display');
 
-    if (btnMove) btnMove.disabled = !(ui.moveBank > 0 && level >= 5);
-    if (btnUndo) btnUndo.disabled = !(ui.movedActors && ui.movedActors.size > 0);
+    if (btnMove) btnMove.disabled = !(level >= 5 && (ui.moveBank > 0 || ui.movedActors.size > 0));
+    if (btnDegrees) {
+      btnDegrees.disabled    = !snap;
+      btnDegrees.textContent = ui.showDegrees ? 'Hide Degrees' : 'See Degrees';
+    }
 
     if (bankDisplay) {
       if (level >= 5) {
@@ -262,9 +377,10 @@ export function renderControls(ui, snap = null) {
 
 // ── Full render ───────────────────────────────────────────────────────────────
 
-export function renderAll(snap, ui = { mergeMode: false, mergeSelected: new Set(), moveMode: false, moveRecord: null, roundTotal: 0 }) {
-  renderGrid(snap);
+export function renderAll(snap, ui = { mergeMode: false, mergeSelected: new Set(), moveMode: false, moveRecord: null, roundTotal: 0, showDegrees: false }) {
+  renderGrid(snap, ui);
   renderScoreBox(snap, ui);
+  renderMoveIndicators(snap, ui);
 
   // Hide movie panel entirely in move mode
   const moviePanel = document.getElementById('movie-panel');

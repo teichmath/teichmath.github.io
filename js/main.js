@@ -24,6 +24,7 @@ async function main() {
     moveBank:      0,
     roundTotal:    0,
     pickMode:      true,
+    showDegrees:   false,
   };
 
   // ── Drag state ─────────────────────────────────────────────────────────────
@@ -51,6 +52,7 @@ async function main() {
 
   function renderPickMode() {
     renderGrid(emptySnap());
+    document.getElementById('grid-move-overlay')?.remove();
     document.getElementById('score-box').innerHTML = '<div class="score-level">Level 1</div>';
     document.getElementById('movie-panel').style.display = '';
     document.getElementById('movie-list').innerHTML = `
@@ -75,6 +77,7 @@ async function main() {
     ui.movedActors   = new Map();
     ui.moveBank      = 0;
     ui.roundTotal    = 0;
+    ui.showDegrees   = false;
     if (moveDragState) { ghost.style.display = 'none'; moveDragState = null; }
     paintDragState = null;
     titleText.textContent = 'Ensembles';
@@ -210,7 +213,6 @@ async function main() {
           ui.movedActors.set(actorIdx, { fromCell: fromIdx, toCell: toIdx });
           ui.moveBank -= 1;
         }
-        ui.moveMode = false;
       }
     }
     moveDragState = null;
@@ -308,6 +310,7 @@ async function main() {
 
     if (ui.moveMode) {
       if (cell.actorIdx === null) return;
+      if (ui.moveBank <= 0 && !ui.movedActors.has(cell.actorIdx)) return;
       moveDragState = { fromIdx: idx, actorIdx: cell.actorIdx, startX: e.clientX, startY: e.clientY, live: false };
       e.preventDefault();
       return;
@@ -502,21 +505,16 @@ async function main() {
 
   document.getElementById('btn-move-actor').addEventListener('click', e => {
     if (!game || ui.pickMode) return;
-    if (ui.moveBank <= 0) return;
+    if (ui.moveBank <= 0 && ui.movedActors.size === 0) return;
     ui.moveMode = true;
     game.disarm();
     render();
     e.stopPropagation();
   });
 
-  document.getElementById('btn-undo-moves').addEventListener('click', e => {
+  document.getElementById('btn-see-degrees').addEventListener('click', e => {
     if (!game || ui.pickMode) return;
-    for (const [, { fromCell, toCell }] of ui.movedActors) {
-      game.simpleMoveActor(toCell, fromCell);
-      ui.moveBank += 1;
-    }
-    ui.movedActors = new Map();
-    if (moveDragState) { ghost.style.display = 'none'; moveDragState = null; }
+    ui.showDegrees = !ui.showDegrees;
     render();
     e.stopPropagation();
   });
