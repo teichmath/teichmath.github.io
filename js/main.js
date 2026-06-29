@@ -22,6 +22,7 @@ async function main() {
     moveMode:      false,
     movedActors:   new Map(),  // actorIdx -> { fromCell, toCell }
     moveBank:      0,
+    moveModeEntry: null,   // snapshot taken when entering move mode, for cancel
     roundTotal:    0,
     pickMode:      true,
     showDegrees:   false,
@@ -76,6 +77,7 @@ async function main() {
     ui.moveMode      = false;
     ui.movedActors   = new Map();
     ui.moveBank      = 0;
+    ui.moveModeEntry = null;
     ui.roundTotal    = 0;
     ui.showDegrees   = false;
     if (moveDragState) { ghost.style.display = 'none'; moveDragState = null; }
@@ -506,6 +508,17 @@ async function main() {
   document.getElementById('btn-move-actor').addEventListener('click', e => {
     if (!game || ui.pickMode) return;
     if (ui.moveBank <= 0 && ui.movedActors.size === 0) return;
+    // Snapshot state so Cancel can revert this session's changes
+    const actorCells = new Map();
+    for (let i = 0; i < 100; i++) {
+      const aIdx = game.grid[i].actorIdx;
+      if (aIdx !== null) actorCells.set(aIdx, i);
+    }
+    ui.moveModeEntry = {
+      movedActors: new Map([...ui.movedActors].map(([k, v]) => [k, { ...v }])),
+      moveBank:    ui.moveBank,
+      actorCells,
+    };
     ui.moveMode = true;
     game.disarm();
     render();
@@ -541,10 +554,33 @@ async function main() {
     e.stopPropagation();
   });
 
+  document.getElementById('btn-move-done').addEventListener('click', e => {
+    if (!game || ui.pickMode) return;
+    ui.moveMode      = false;
+    ui.moveModeEntry = null;
+    if (moveDragState) { ghost.style.display = 'none'; moveDragState = null; }
+    render();
+    e.stopPropagation();
+  });
+
   document.getElementById('btn-move-cancel').addEventListener('click', e => {
     if (!game || ui.pickMode) return;
-    ui.moveMode = false;
     if (moveDragState) { ghost.style.display = 'none'; moveDragState = null; }
+    // Revert any actor positions changed during this session
+    if (ui.moveModeEntry) {
+      for (const [actorIdx, entryCell] of ui.moveModeEntry.actorCells) {
+        for (let i = 0; i < 100; i++) {
+          if (game.grid[i].actorIdx === actorIdx) {
+            if (i !== entryCell) game.simpleMoveActor(i, entryCell);
+            break;
+          }
+        }
+      }
+      ui.movedActors   = ui.moveModeEntry.movedActors;
+      ui.moveBank      = ui.moveModeEntry.moveBank;
+      ui.moveModeEntry = null;
+    }
+    ui.moveMode = false;
     render();
     e.stopPropagation();
   });
