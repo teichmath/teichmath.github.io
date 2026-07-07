@@ -28,18 +28,47 @@ function genColors(n) {
     out.push(`hsl(${Math.round(hue)},${s}%,${l}%)`);
     hue = (hue + 137.508) % 360;
   }
+  if (out.length >= 12) {
+    const brown = out.splice(0, 1)[0];
+    out.splice(11, 0, brown);
+  }
   return out;
 }
 
 // ── Monogram generation ───────────────────────────────────────────────────────
 function genMonograms(actors) {
-  const mono = {};
+  // Compute the fixed 2-uppercase-letter root for each actor.
+  const roots = {};
   for (let i = 0; i < actors.length; i++) {
     const parts = actors[i].name.trim().split(/\s+/).filter(Boolean);
     const first = parts[0] || '';
     const last  = parts.length > 1 ? parts[parts.length - 1] : '';
-    mono[i] = ((first[0] || '') + (last[0] || first[1] || '')).toUpperCase();
+    roots[i] = ((first[0] || '') + (last[0] || first[1] || '')).toUpperCase();
   }
+
+  // Build the interleaved tiebreak string for each actor:
+  // strip the first letter from each of first and last name, lowercase the
+  // remainder, then interleave (first-name letter, last-name letter, ...).
+  function buildInterleaved(name) {
+    const parts     = name.trim().split(/\s+/).filter(Boolean);
+    const firstRest = (parts[0] || '').slice(1).toLowerCase();
+    const lastRest  = (parts.length > 1 ? parts[parts.length - 1] : '').slice(1).toLowerCase();
+    const result = [];
+    const len = Math.max(firstRest.length, lastRest.length);
+    for (let k = 0; k < len; k++) {
+      if (k < firstRest.length) result.push(firstRest[k]);
+      if (k < lastRest.length)  result.push(lastRest[k]);
+    }
+    return result;
+  }
+
+  const interleaved = actors.map(a => buildInterleaved(a.name));
+  const mono = { ...roots };
+
+  // Deduplication: for each clashing actor, walk the interleaved string and
+  // try inserting each letter in the middle (even positions) or at the end
+  // (odd positions), keeping it lowercase. Always reconstruct from the fixed
+  // 2-letter root so repeated passes stay consistent.
   let dirty = true;
   while (dirty) {
     dirty = false;
@@ -47,17 +76,20 @@ function genMonograms(actors) {
     for (const m of Object.values(mono)) freq[m] = (freq[m] || 0) + 1;
     for (let i = 0; i < actors.length; i++) {
       if (freq[mono[i]] <= 1) continue;
-      const base    = mono[i];
-      const letters = actors[i].name.toUpperCase().replace(/[^A-Z]/g, '');
+      const F       = roots[i][0] || '';
+      const L       = roots[i][1] || '';
+      const letters = interleaved[i];
       let   ok      = false;
-      for (const ch of letters) {
-        const cand  = base + ch;
+      for (let k = 0; k < letters.length; k++) {
+        const ch   = letters[k];
+        const cand = k % 2 === 0 ? F + ch + L : F + L + ch;
         const clash = Object.entries(mono).some(([j, m]) => Number(j) !== i && m === cand);
         if (!clash) { mono[i] = cand; dirty = true; ok = true; break; }
       }
-      if (!ok) { mono[i] = base + (i % 10); dirty = true; }
+      if (!ok) { mono[i] = roots[i] + (i % 10); dirty = true; }
     }
   }
+
   return mono;
 }
 
@@ -130,6 +162,20 @@ export class ActorGame {
       chosen.push(p); chosenSet.add(p.rawIdx);
     }
     return chosen;
+  }
+
+  // Try each displayed movie in random order; return a random eligible actor from
+  // the first one that has any actors not yet on the board.
+  _nextFromDisplayedMovies() {
+    const activeSet = new Set(this.actors.map(a => a.rawIdx));
+    const order = [...this.movies].sort(() => Math.random() - 0.5);
+    for (const movie of order) {
+      const pool = this.rawActors
+        .map((a, i) => ({ ...a, rawIdx: i }))
+        .filter(a => !activeSet.has(a.rawIdx) && a.bits[movie.rawMovieIdx]);
+      if (pool.length) return pool[Math.floor(Math.random() * pool.length)];
+    }
+    return null;
   }
 
   _nextConnectedFrom(chosenSet, chosenActors) {
@@ -347,7 +393,8 @@ export class ActorGame {
 
   advanceLevel() {
     const activeSet = new Set(this.actors.map(a => a.rawIdx));
-    const newActor  = this._nextConnectedFrom(activeSet, this.actors)
+    const newActor  = this._nextFromDisplayedMovies()
+      ?? this._nextConnectedFrom(activeSet, this.actors)
       ?? (() => {
         const pool = this.rawActors.map((a, i) => ({ ...a, rawIdx: i }))
                          .filter(a => !activeSet.has(a.rawIdx));
