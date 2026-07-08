@@ -164,17 +164,36 @@ export class ActorGame {
     return chosen;
   }
 
-  // Try each displayed movie in random order; return a random eligible actor from
-  // the first one that has any actors not yet on the board.
+  // Pick the next actor from the displayed title list, weighting titles
+  // inversely by how many board actors already appear in them, then trying
+  // titles in that weighted-random order until one has an eligible actor.
   _nextFromDisplayedMovies() {
     const activeSet = new Set(this.actors.map(a => a.rawIdx));
-    const order = [...this.movies].sort(() => Math.random() - 0.5);
-    for (const movie of order) {
-      const pool = this.rawActors
+
+    // Build pool with per-title degree (# of board actors in that title).
+    const pool = this.movies.map(movie => ({
+      movie,
+      degree: this.actors.reduce((n, a) => n + (a.bits[movie.rawMovieIdx] ? 1 : 0), 0),
+    }));
+
+    while (pool.length > 0) {
+      // Weighted pick: weight = 1/degree (titles with fewer board actors win more often).
+      const weights = pool.map(({ degree }) => 1 / degree);
+      const total   = weights.reduce((s, w) => s + w, 0);
+      let r = Math.random() * total;
+      let idx = pool.length - 1;
+      for (let i = 0; i < pool.length; i++) {
+        r -= weights[i];
+        if (r <= 0) { idx = i; break; }
+      }
+
+      const { movie } = pool.splice(idx, 1)[0];
+      const eligible = this.rawActors
         .map((a, i) => ({ ...a, rawIdx: i }))
         .filter(a => !activeSet.has(a.rawIdx) && a.bits[movie.rawMovieIdx]);
-      if (pool.length) return pool[Math.floor(Math.random() * pool.length)];
+      if (eligible.length) return eligible[Math.floor(Math.random() * eligible.length)];
     }
+
     return null;
   }
 
@@ -392,8 +411,12 @@ export class ActorGame {
   // ── Level advancement ─────────────────────────────────────────────────────────
 
   advanceLevel() {
-    const activeSet = new Set(this.actors.map(a => a.rawIdx));
-    const newActor  = this._nextFromDisplayedMovies()
+    const activeSet    = new Set(this.actors.map(a => a.rawIdx));
+    // Selection number is 1-indexed: actors start at 3, so selection #1 adds actor #4.
+    // Every fourth selection (4, 8, 12, …) bypasses the displayed-movie picker.
+    const selectionNum = this.actors.length - 2;
+    const useOldPicker = selectionNum % 4 === 0;
+    const newActor  = (useOldPicker ? null : this._nextFromDisplayedMovies())
       ?? this._nextConnectedFrom(activeSet, this.actors)
       ?? (() => {
         const pool = this.rawActors.map((a, i) => ({ ...a, rawIdx: i }))
