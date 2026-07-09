@@ -18,6 +18,15 @@
 const GRID = 100;
 const COLS = 10;
 
+// Minimum displayed-title count required before entering a given level.
+function minTitlesForLevel(level) {
+  if (level >= 7) return 5;
+  if (level >= 5) return 4;
+  if (level >= 3) return 3;
+  if (level >= 2) return 2;
+  return 0;
+}
+
 // ── Color generation ──────────────────────────────────────────────────────────
 function genColors(n) {
   const out = [];
@@ -195,6 +204,43 @@ export class ActorGame {
     }
 
     return null;
+  }
+
+  // Find an off-board actor who would unlock at least one new displayed title
+  // (i.e., appears in an undisplayed movie that already has exactly 1 board actor).
+  // Weighted by how many new titles they would unlock.
+  _nextExpansionActor() {
+    const activeSet    = new Set(this.actors.map(a => a.rawIdx));
+    const displayedSet = new Set(this.movies.map(m => m.rawMovieIdx));
+
+    // Count board actors in each undisplayed movie.
+    const undisplayedCount = {};
+    for (let j = 0; j < this.rawMovies.length; j++) {
+      if (displayedSet.has(j)) continue;
+      const n = this.actors.reduce((s, a) => s + (a.bits[j] ? 1 : 0), 0);
+      if (n === 1) undisplayedCount[j] = 1; // only movies with exactly 1 board actor matter
+    }
+
+    const candidates = [];
+    for (let i = 0; i < this.rawActors.length; i++) {
+      if (activeSet.has(i)) continue;
+      const a = this.rawActors[i];
+      let newTitles = 0;
+      for (const j of Object.keys(undisplayedCount)) {
+        if (a.bits[Number(j)]) newTitles++;
+      }
+      if (newTitles > 0) candidates.push({ actor: { ...a, rawIdx: i }, newTitles });
+    }
+
+    if (!candidates.length) return null;
+
+    const total = candidates.reduce((s, c) => s + c.newTitles, 0);
+    let r = Math.random() * total;
+    for (const c of candidates) {
+      r -= c.newTitles;
+      if (r <= 0) return c.actor;
+    }
+    return candidates[candidates.length - 1].actor;
   }
 
   _nextConnectedFrom(chosenSet, chosenActors) {
@@ -412,17 +458,29 @@ export class ActorGame {
 
   advanceLevel() {
     const activeSet    = new Set(this.actors.map(a => a.rawIdx));
-    // Selection number is 1-indexed: actors start at 3, so selection #1 adds actor #4.
-    // Every fourth selection (4, 8, 12, …) bypasses the displayed-movie picker.
-    const selectionNum = this.actors.length - 2;
+    const selectionNum = this.actors.length - 2; // 1-indexed; every 4th uses old picker
     const useOldPicker = selectionNum % 4 === 0;
-    const newActor  = (useOldPicker ? null : this._nextFromDisplayedMovies())
-      ?? this._nextConnectedFrom(activeSet, this.actors)
-      ?? (() => {
-        const pool = this.rawActors.map((a, i) => ({ ...a, rawIdx: i }))
-                         .filter(a => !activeSet.has(a.rawIdx));
-        return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
-      })();
+    const nextLevel    = this.level + 1;
+
+    // Tier 1: threshold — if below required title count, prefer expansion actor.
+    // Overrides the every-fourth old-picker so early levels always hit their minimums.
+    const needsExpansion = this.movies.length < minTitlesForLevel(nextLevel);
+
+    // Tier 2: saturation — titles/actors < 0.5 means too few titles for board size.
+    // Respects the every-fourth old-picker (a connected pick can also break saturation).
+    const saturated = !needsExpansion && (this.movies.length < this.actors.length / 2);
+
+    let newActor = null;
+
+    if (needsExpansion)                      newActor = this._nextExpansionActor();
+    if (!newActor && saturated && !useOldPicker) newActor = this._nextExpansionActor();
+    if (!newActor && !useOldPicker)          newActor = this._nextFromDisplayedMovies();
+    if (!newActor) newActor = this._nextConnectedFrom(activeSet, this.actors);
+    if (!newActor) {
+      const pool = this.rawActors.map((a, i) => ({ ...a, rawIdx: i }))
+                       .filter(a => !activeSet.has(a.rawIdx));
+      if (pool.length) newActor = pool[Math.floor(Math.random() * pool.length)];
+    }
     if (!newActor) return false;
 
     this.actors.push({ ...newActor });
