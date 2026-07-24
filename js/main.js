@@ -424,8 +424,11 @@ async function main() {
     const loads = [];
     for (let i = 0; i < count; i++) {
       const img = new Image();
-      img.src = `htp/${tipIdx}/${i}.jpg`;
-      loads.push(new Promise(res => { img.onload = img.onerror = res; }));
+      loads.push(new Promise(res => {
+        img.onload = img.onerror = res;
+        img.src = `htp/${tipIdx}/${i}.jpg`;
+        if (img.complete) res();
+      }));
       imgs.push(img);
     }
     await Promise.all(loads);
