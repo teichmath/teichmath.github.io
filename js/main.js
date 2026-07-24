@@ -400,7 +400,7 @@ async function main() {
     "Hover over an actor monogram to see if the actor is in the selected title (name is shown either bold or gray).",
     "Reach the minimum number of points to advance to the next level.",
     "Lifeline 1: You can merge titles together so that a single color represents all merged titles. You can do any number of merges, and any number of titles per merge.",
-    "Lifeline 2: You can move an actor monogram to a different square on the grid- as long as you have actor moves left in your bank. Starting at level 6, you get one move in the bank per level.",
+    "Lifeline 2: You can move an actor monogram to a different square on the grid- as long as you have actor moves left in your bank. Starting at level 5, you get one move in the bank per level.",
     "You can always undo an actor move. A dashed line will show you where a monogram started; move it back to its starting position to get the move back in the bank.",
     "You can also select “See Degrees” to see how many titles each actor appears in, and how many actors appear in each title.",
     "Eventually, you'll get to an impossible level, but don't assume you've already reached it- there may be a surprising way to complete a challenging grid.",
