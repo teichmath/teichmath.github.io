@@ -422,14 +422,14 @@ async function main() {
     if (!count) { htpImages = []; return; }
     const imgs = [];
     const loads = [];
-    for (let i = 1; i <= count; i++) {
+    for (let i = 0; i < count; i++) {
       const img = new Image();
       img.src = `htp/${tipIdx}/${i}.jpg`;
       loads.push(new Promise(res => { img.onload = img.onerror = res; }));
       imgs.push(img);
     }
     await Promise.all(loads);
-    htpImages = imgs;
+    htpImages = imgs.filter(img => img.complete && img.naturalWidth > 0);
   }
 
   function htpCycleImage() {
@@ -447,6 +447,7 @@ async function main() {
 
     htpBar.style.display        = '';
     htpImgOverlay.style.display = '';
+    htpBar.classList.toggle('htp-bar-top', htpTipIdx === 7 || htpTipIdx === 8);
 
     if (htpImgTimer) { clearInterval(htpImgTimer); htpImgTimer = null; }
     htpImgEl.src = '';
