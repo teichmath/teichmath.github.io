@@ -420,24 +420,22 @@ async function main() {
   async function htpLoadImages(tipIdx) {
     const count = htpManifest[tipIdx] ?? 0;
     if (!count) { htpImages = []; return; }
-    const imgs = [];
-    const loads = [];
-    for (let i = 0; i < count; i++) {
+    htpImages = Array.from({length: count}, (_, i) => {
       const img = new Image();
-      loads.push(new Promise(res => {
-        img.onload = img.onerror = res;
-        img.src = `htp/${tipIdx}/${i}.jpg`;
-        if (img.complete) res();
-      }));
-      imgs.push(img);
+      img.src = `htp/${tipIdx}/${i}.jpg`;
+      return img;
+    });
+    const first = htpImages[0];
+    if (!first.complete) {
+      await new Promise(res => { first.onload = first.onerror = res; });
     }
-    await Promise.all(loads);
-    htpImages = imgs.filter(img => img.complete && img.naturalWidth > 0);
   }
 
   function htpCycleImage() {
     if (!htpImages.length) return;
-    htpImgIdx = (htpImgIdx + 1) % htpImages.length;
+    const next = (htpImgIdx + 1) % htpImages.length;
+    if (!htpImages[next].complete) return;
+    htpImgIdx = next;
     htpImgEl.src = htpImages[htpImgIdx].src;
   }
 
@@ -458,9 +456,12 @@ async function main() {
     htpImgIdx    = 0;
 
     htpLoadImages(htpTipIdx).then(() => {
-      if (!htpImages.length) return;
+      if (!htpImages.length || !htpImages[0].naturalWidth) return;
       htpImgEl.src = htpImages[0].src;
-      if (htpImages.length > 1) htpImgTimer = setInterval(htpCycleImage, 400);
+      if (htpImages.length > 1) {
+        if (htpImgTimer) { clearInterval(htpImgTimer); htpImgTimer = null; }
+        htpImgTimer = setInterval(htpCycleImage, 500);
+      }
     });
   }
 
