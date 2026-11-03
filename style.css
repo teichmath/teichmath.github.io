@@ -96,6 +96,36 @@ body {
   gap: 6px;
 }
 
+.picker-modes {
+  display: flex;
+  gap: 6px;
+}
+
+/* Selected mode: inverted, like a highlighted Mac menu item */
+.mac-btn.picker-mode.selected {
+  background: var(--gray-darker);
+  color: var(--white);
+  border-top:    2px solid var(--black);
+  border-left:   2px solid var(--black);
+  border-right:  2px solid var(--gray-dark);
+  border-bottom: 2px solid var(--gray-dark);
+  box-shadow: none;
+}
+
+.picker-mode-desc {
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--gray-darker);
+  padding: 6px 0 12px 0;
+}
+
+.game-over-msg {
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  padding: 4px 2px;
+}
+
 /* ── Title bar ──────────────────────────────────────────────────────── */
 #title-bar {
   background: linear-gradient(to bottom, #5F8FC8 0%, #1B4B9A 100%);
@@ -398,7 +428,7 @@ body {
   padding: 72px 14px 14px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 9px;
   overflow-y: auto;
 }
 
@@ -419,6 +449,13 @@ body {
   font-size: 11px;
   line-height: 1.6;
 }
+
+.htp-mode-boxes {
+  display: flex;
+  gap: 10px;
+}
+
+.htp-mode-boxes .htp-set-box { flex: 1; }
 
 .htp-set-box legend {
   font-size: 11px;

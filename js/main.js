@@ -1,5 +1,6 @@
 import { loadData }   from './data.js';
 import { ActorGame }  from './game.js';
+import { PuzzleSource } from './puzzle-client.js';
 import {
   initCursor, moveCursor, setCursorColor,
   renderAll, renderGrid, renderMovieList, renderControls,
@@ -16,6 +17,23 @@ async function main() {
 
   let game = null;
 
+  // ── Mode (Random Blind / Puzzle Master) ────────────────────────────────────
+  const MODE_NAMES = { random: 'Random Blind', puzzle: 'Puzzle Master' };
+  const MODE_KEY   = 'ensembles.mode';
+  function loadMode() {
+    try { return localStorage.getItem(MODE_KEY) === 'puzzle' ? 'puzzle' : 'random'; }
+    catch { return 'random'; }
+  }
+  function saveMode(mode) {
+    try { localStorage.setItem(MODE_KEY, mode); } catch { /* not remembered */ }
+  }
+  // Testing aid: ?pmsteps=20 gives the generator a tiny budget, forcing an early Game Over.
+  const pmSteps = Number(new URLSearchParams(location.search).get('pmsteps')) || undefined;
+
+  let puzzleSource = null;  // PuzzleSource while a Puzzle Master game is running
+  let puzzleSolution = null; // known solution of the current Puzzle Master level
+  let gameToken    = 0;     // bumped on every new game/picker, to drop stale async results
+
   const ui = {
     mergeMode:     false,
     mergeSelected: new Set(),
@@ -26,6 +44,10 @@ async function main() {
     roundTotal:    0,
     pickMode:      true,
     showDegrees:   false,
+    mode:          loadMode(),
+    puzzleK:       0,       // Puzzle Master: actor moves given this level
+    composing:     false,   // Puzzle Master: waiting for the next level
+    gameOver:      null,    // Puzzle Master: { level, reason } when no harder puzzle can be made
   };
 
   // ── Drag state ─────────────────────────────────────────────────────────────
@@ -56,7 +78,15 @@ async function main() {
     document.getElementById('grid-move-overlay')?.remove();
     document.getElementById('score-box').innerHTML = '<div class="score-level">Level 1</div>';
     document.getElementById('movie-panel').style.display = '';
+    const modeBtn = mode =>
+      `<button class="mac-btn picker-mode${ui.mode === mode ? ' selected' : ''}" data-mode="${mode}">${MODE_NAMES[mode]}</button>`;
+    const modeDesc = ui.mode === 'puzzle'
+      ? 'Every level is guaranteed solvable, with the actor moves it needs. Play until no harder puzzle can be made.'
+      : 'Actors land wherever they land. Levels get harder until they’re impossible, and you decide when to stop.';
     document.getElementById('movie-list').innerHTML = `
+      <div class="picker-prompt">Choose a mode:</div>
+      <div class="picker-modes">${modeBtn('random')}${modeBtn('puzzle')}</div>
+      <div class="picker-mode-desc">${modeDesc}</div>
       <div class="picker-prompt">Choose a set to play:</div>
       <div class="picker-options">
         <button class="mac-btn mac-btn-full picker-option" data-csv="actor_tables/bunches_of_britons.csv">Bunches of Britons</button>
@@ -71,6 +101,12 @@ async function main() {
 
   function enterPickMode() {
     game = null;
+    gameToken++;
+    puzzleSource?.dispose();
+    puzzleSource     = null;
+    ui.puzzleK       = 0;
+    ui.composing     = false;
+    ui.gameOver      = null;
     ui.pickMode      = true;
     ui.mergeMode     = false;
     ui.mergeSelected = new Set();
@@ -88,10 +124,58 @@ async function main() {
 
   async function startGame(csvPath, setName) {
     document.getElementById('htp-pregame').style.display = 'none';
+    const token = ++gameToken;
     const raw = await loadData(csvPath);
-    game = new ActorGame(raw);
+    if (token !== gameToken) return;
+    titleText.textContent = `Ensembles: ${setName} · ${MODE_NAMES[ui.mode]}`;
+
+    if (ui.mode === 'random') {
+      game = new ActorGame(raw);
+      ui.pickMode = false;
+      render();
+      return;
+    }
+
+    puzzleSource = new PuzzleSource(raw, { genOpts: pmSteps ? { maxSteps: pmSteps } : {} });
+    document.getElementById('score-box').innerHTML =
+      '<div class="score-level">Level 1</div><div class="score-mode-msg">Composing puzzle…</div>';
+    const { result } = await puzzleSource.next();
+    if (token !== gameToken) return;
+    if (!result.ok) {
+      document.getElementById('score-box').innerHTML =
+        '<div class="score-mode-msg">Couldn’t compose a puzzle. Press Restart to try again.</div>';
+      return;
+    }
+    game = new ActorGame(raw, { actors: result.actors, positions: result.positions });
+    puzzleSolution = result.solution;
+    ui.puzzleK  = result.k;
+    ui.moveBank = result.k;
     ui.pickMode = false;
-    titleText.textContent = `Ensembles: ${setName}`;
+    render();
+  }
+
+  // Puzzle Master: take the next composed level (waiting for it if needed).
+  async function advancePuzzleLevel() {
+    const token = gameToken;
+    const passedLevel = game.level;
+    if (!puzzleSource.ready) { ui.composing = true; render(); }
+    const { result } = await puzzleSource.next();
+    if (token !== gameToken) return;
+    ui.composing = false;
+    if (!result.ok) {
+      ui.gameOver = { level: passedLevel, reason: result.reason };
+      ui.showDegrees = false;
+      game.disarm();
+      puzzleSource.dispose();
+      puzzleSource = null;
+      render();
+      return;
+    }
+    ui.movedActors = new Map();
+    game.advanceLevelTo(result.rawIdx, result.positions);
+    puzzleSolution = result.solution;
+    ui.puzzleK  = result.k;
+    ui.moveBank = result.k;   // fresh each level; unused moves don't carry over
     render();
   }
 
@@ -102,6 +186,11 @@ async function main() {
 
   // Show initial state
   enterPickMode();
+
+  // Testing aid: ?debug exposes state for automated tests.
+  if (new URLSearchParams(location.search).has('debug')) {
+    window.__ensembles = { get game() { return game; }, get solution() { return puzzleSolution; }, ui, render };
+  }
 
   // ── Tooltip ────────────────────────────────────────────────────────────────
 
@@ -303,7 +392,7 @@ async function main() {
   });
 
   gridEl.addEventListener('mousedown', e => {
-    if (!game || ui.pickMode || ui.mergeMode) return;
+    if (!game || ui.pickMode || ui.mergeMode || ui.gameOver) return;
 
     const cellEl = e.target.closest('.cell');
     if (!cellEl) return;
@@ -336,13 +425,21 @@ async function main() {
   // ── Movie list clicks ──────────────────────────────────────────────────────
 
   document.getElementById('movie-list').addEventListener('click', e => {
+    const modeBtn = e.target.closest('.picker-mode');
+    if (modeBtn) {
+      ui.mode = modeBtn.dataset.mode;
+      saveMode(ui.mode);
+      renderPickMode();
+      return;
+    }
+
     const pickerBtn = e.target.closest('.picker-option');
     if (pickerBtn) {
       startGame(pickerBtn.dataset.csv, pickerBtn.textContent.trim()).catch(err => console.error('Failed to load table:', err));
       return;
     }
 
-    if (!game || ui.pickMode) return;
+    if (!game || ui.pickMode || ui.gameOver) return;
 
     const unmergeBtn = e.target.closest('[data-unmerge-gid]');
     if (unmergeBtn) {
@@ -374,6 +471,16 @@ async function main() {
 
   document.getElementById('score-box').addEventListener('click', e => {
     if (!game || ui.pickMode) return;
+    if (e.target.id === 'btn-play-again') {
+      enterPickMode();
+      return;
+    }
+    if (e.target.id === 'btn-next-level' && ui.mode === 'puzzle') {
+      if (ui.composing || ui.gameOver) return;
+      ui.roundTotal += game.snapshot().score;
+      advancePuzzleLevel().catch(err => console.error('Failed to compose level:', err));
+      return;
+    }
     if (e.target.id === 'btn-next-level') {
       ui.roundTotal   += game.snapshot().score;
       ui.movedActors   = new Map();
@@ -405,6 +512,13 @@ async function main() {
     "You can also select “See Degrees” to see how many titles each actor appears in, and how many actors appear in each title.",
     "Eventually, you'll get to an impossible level, but don't assume you've already reached it- there may be a surprising way to complete a challenging grid.",
   ];
+
+  // Puzzle Master replaces some tips' text; the animations stay the same.
+  const PUZZLE_TIPS = {
+    8:  "Lifeline 2: You can move an actor monogram to a different square on the grid. In Puzzle Master, each level comes with the actor moves it needs- none at first, then more as the levels get harder. (A clever solution may need fewer.) Unused moves don't carry over to the next level.",
+    11: "Every Puzzle Master level is guaranteed to be solvable. Eventually we won't be able to make a harder puzzle that we can guarantee- and at that point, you've won the game.",
+  };
+  const tipText = idx => (ui.mode === 'puzzle' && PUZZLE_TIPS[idx]) || TIPS[idx];
 
   let htpTipIdx   = 0;
   let htpImages   = [];
@@ -441,7 +555,7 @@ async function main() {
 
   function htpShow(idx) {
     htpTipIdx = Math.max(0, Math.min(TIPS.length - 1, idx));
-    htpBody.textContent    = TIPS[htpTipIdx];
+    htpBody.textContent    = tipText(htpTipIdx);
     htpCounter.textContent = `${htpTipIdx + 1} / ${TIPS.length}`;
     document.getElementById('btn-htp-prev').disabled = htpTipIdx === 0;
     document.getElementById('btn-htp-next').disabled = htpTipIdx === TIPS.length - 1;
@@ -505,7 +619,7 @@ async function main() {
   // ── Controls ───────────────────────────────────────────────────────────────
 
   document.getElementById('btn-merge-titles').addEventListener('click', e => {
-    if (!game || ui.pickMode) return;
+    if (!game || ui.pickMode || ui.gameOver) return;
     ui.mergeMode     = true;
     ui.mergeSelected = new Set();
     render();
@@ -513,7 +627,7 @@ async function main() {
   });
 
   document.getElementById('btn-move-actor').addEventListener('click', e => {
-    if (!game || ui.pickMode) return;
+    if (!game || ui.pickMode || ui.gameOver) return;
     if (ui.moveBank <= 0 && ui.movedActors.size === 0) return;
     // Snapshot state so Cancel can revert this session's changes
     const actorCells = new Map();
@@ -533,7 +647,7 @@ async function main() {
   });
 
   document.getElementById('btn-see-degrees').addEventListener('click', e => {
-    if (!game || ui.pickMode) return;
+    if (!game || ui.pickMode || ui.gameOver) return;
     ui.showDegrees = !ui.showDegrees;
     render();
     e.stopPropagation();

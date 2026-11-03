@@ -9,6 +9,7 @@
  *  - Toggle-off still enforces connectivity (keeps component with most actors).
  *  - Level system: start with 3 actors; pass at score >= maxScore - 0.5.
  *  - advanceLevel(): add actor via chain, clear grid, re-place all, re-init groups.
+ *  - advanceLevelTo() / start positions: Puzzle Master levels from js/puzzle.js.
  *  - mergeGroups(gids[]) / unmergeGroup(gid).
  *  - Displayed movies: only those with >= 2 active actors (from v2).
  *  - Scoring: merged group on actor cell = sum(+1/-1 per movie in group);
@@ -119,7 +120,8 @@ function emptyGrid() {
 
 // ── ActorGame ─────────────────────────────────────────────────────────────────
 export class ActorGame {
-  constructor(rawData) {
+  // start (optional, Puzzle Master): { actors: rawIdx[], positions: cell[] }
+  constructor(rawData, start = null) {
     this.rawActors = rawData.actors;
     this.rawMovies = rawData.movies;
 
@@ -135,19 +137,22 @@ export class ActorGame {
     this.armed = null;  // groupId | null
     this.level = 1;
 
-    this._start();
+    this._start(start);
   }
 
   // ── Initialise ───────────────────────────────────────────────────────────────
 
-  _start() {
+  _start(start = null) {
     this.grid  = emptyGrid();
     this.armed = null;
     this.level = 1;
-    this.actors = this._pickConnectedActors(3);
+    this.actors = start
+      ? start.actors.map(i => ({ ...this.rawActors[i], rawIdx: i }))
+      : this._pickConnectedActors(3);
     this._rebuildMovies();
     this._initGroups();
-    this._placeActors(this.actors);
+    if (start) this._setPositions(start.positions);
+    else       this._placeActors(this.actors);
   }
 
   restart() { this._start(); }
@@ -176,8 +181,8 @@ export class ActorGame {
   // Pick the next actor from the displayed title list, weighting titles
   // inversely by how many board actors already appear in them, then trying
   // titles in that weighted-random order until one has an eligible actor.
-  _nextFromDisplayedMovies() {
-    const activeSet = new Set(this.actors.map(a => a.rawIdx));
+  _nextFromDisplayedMovies(exclude) {
+    const activeSet = new Set([...this.actors.map(a => a.rawIdx), ...exclude]);
 
     // Build pool with per-title degree (# of board actors in that title).
     const pool = this.movies.map(movie => ({
@@ -209,8 +214,8 @@ export class ActorGame {
   // Find an off-board actor who would unlock at least one new displayed title
   // (i.e., appears in an undisplayed movie that already has exactly 1 board actor).
   // Weighted by how many new titles they would unlock.
-  _nextExpansionActor() {
-    const activeSet    = new Set(this.actors.map(a => a.rawIdx));
+  _nextExpansionActor(exclude) {
+    const activeSet    = new Set([...this.actors.map(a => a.rawIdx), ...exclude]);
     const displayedSet = new Set(this.movies.map(m => m.rawMovieIdx));
 
     // Count board actors in each undisplayed movie.
@@ -355,6 +360,11 @@ export class ActorGame {
     }
   }
 
+  // positions[actorIdx] = cell
+  _setPositions(positions) {
+    positions.forEach((cell, a) => { this.grid[cell].actorIdx = a; });
+  }
+
   // ── Arming ────────────────────────────────────────────────────────────────────
 
   arm(gid) { this.armed = gid; }
@@ -456,8 +466,10 @@ export class ActorGame {
 
   // ── Level advancement ─────────────────────────────────────────────────────────
 
-  advanceLevel() {
-    const activeSet    = new Set(this.actors.map(a => a.rawIdx));
+  // Choose the next actor by the usual chain rules, skipping any rawIdx in
+  // `exclude` (Puzzle Master re-picks). Returns a raw actor, or null.
+  pickNextActor(exclude = new Set()) {
+    const activeSet    = new Set([...this.actors.map(a => a.rawIdx), ...exclude]);
     const selectionNum = this.actors.length - 2; // 1-indexed; every 4th uses old picker
     const useOldPicker = selectionNum % 4 === 0;
     const nextLevel    = this.level + 1;
@@ -472,18 +484,23 @@ export class ActorGame {
 
     let newActor = null;
 
-    if (needsExpansion)                      newActor = this._nextExpansionActor();
-    if (!newActor && saturated && !useOldPicker) newActor = this._nextExpansionActor();
-    if (!newActor && !useOldPicker)          newActor = this._nextFromDisplayedMovies();
+    if (needsExpansion)                      newActor = this._nextExpansionActor(exclude);
+    if (!newActor && saturated && !useOldPicker) newActor = this._nextExpansionActor(exclude);
+    if (!newActor && !useOldPicker)          newActor = this._nextFromDisplayedMovies(exclude);
     if (!newActor) newActor = this._nextConnectedFrom(activeSet, this.actors);
     if (!newActor) {
       const pool = this.rawActors.map((a, i) => ({ ...a, rawIdx: i }))
                        .filter(a => !activeSet.has(a.rawIdx));
       if (pool.length) newActor = pool[Math.floor(Math.random() * pool.length)];
     }
-    if (!newActor) return false;
+    return newActor;
+  }
 
-    this.actors.push({ ...newActor });
+  // Add an actor and extend the displayed movies. Does not touch the board.
+  // Returns a token for removeLastActor.
+  addActor(actor) {
+    const token = { moviesLength: this.movies.length };
+    this.actors.push({ ...actor });
 
     // Extend displayed movies
     const rawSet = new Set();
@@ -505,14 +522,42 @@ export class ActorGame {
       a.activeBits = this.movies.map(m => a.bits[m.rawMovieIdx] || 0);
     }
     this.monos = genMonograms(this.actors);
+    return token;
+  }
 
-    // Clear grid and re-place all actors
+  // Undo the most recent addActor (before the board is reset for the new level).
+  removeLastActor(token) {
+    this.actors.pop();
+    this.movies.length = token.moviesLength;
+    for (const a of this.actors) {
+      a.activeBits = this.movies.map(m => a.bits[m.rawMovieIdx] || 0);
+    }
+    this.monos = genMonograms(this.actors);
+  }
+
+  // Random Blind: next actor by the chain rules, all actors placed randomly.
+  advanceLevel() {
+    const newActor = this.pickNextActor();
+    if (!newActor) return false;
+    this.addActor(newActor);
+    this._newBoard(null);
+    return true;
+  }
+
+  // Puzzle Master: add the given actor and place everyone at positions[actorIdx].
+  advanceLevelTo(rawIdx, positions) {
+    this.addActor({ ...this.rawActors[rawIdx], rawIdx });
+    this._newBoard(positions);
+  }
+
+  // Clear grid and re-place all actors (randomly when positions is null)
+  _newBoard(positions) {
     for (let i = 0; i < GRID; i++) { this.grid[i].colors.clear(); this.grid[i].actorIdx = null; }
-    this._placeActors(this.actors);
+    if (positions) this._setPositions(positions);
+    else           this._placeActors(this.actors);
     this._initGroups();
     this.armed = null;
     this.level++;
-    return true;
   }
 
   // ── Scoring ───────────────────────────────────────────────────────────────────

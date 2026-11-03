@@ -182,6 +182,14 @@ export function renderScoreBox(snap, ui) {
     return;
   }
 
+  if (ui.gameOver) {
+    box.innerHTML = `
+      <div class="score-level">Level ${ui.gameOver.level} &mdash; <span class="level-passed-text">${ui.gameOver.reason === 'error' ? 'GAME OVER' : 'YOU WIN!'}</span></div>
+      <div class="score-row">Final score: <strong>${fmtScore(ui.roundTotal ?? 0)}</strong></div>
+      <button class="mac-btn mac-btn-full" id="btn-play-again">Play Again</button>`;
+    return;
+  }
+
   const scoreAndBanked = `
     <div class="score-row">
       Score: <strong>${fmtScore(score)}</strong> / ${maxScore}
@@ -192,7 +200,9 @@ export function renderScoreBox(snap, ui) {
     box.innerHTML = `
       <div class="score-level">Level ${level} &mdash; <span class="level-passed-text">PASSED!</span></div>
       ${scoreAndBanked}
-      <button class="mac-btn mac-btn-full" id="btn-next-level">Next Level &rarr;</button>`;
+      ${ui.composing
+        ? '<button class="mac-btn mac-btn-full" id="btn-next-level" disabled>Composing puzzle…</button>'
+        : '<button class="mac-btn mac-btn-full" id="btn-next-level">Next Level &rarr;</button>'}`;
     return;
   }
 
@@ -200,6 +210,23 @@ export function renderScoreBox(snap, ui) {
     <div class="score-level">Level ${level}</div>
     ${scoreAndBanked}
     <div class="score-row score-goal">Min Goal: ${fmtScore(minGoal)}</div>`;
+}
+
+// ── Game Over (Puzzle Master) ─────────────────────────────────────────────────
+
+function renderGameOver(ui) {
+  const next = ui.gameOver.level + 1;
+  const msg = {
+    exhausted: `You've beaten Puzzle Master!\n\nWe tried six different casts for level ${next} and couldn't compose one we could guarantee was solvable. Every level you played had a solution, and you found every one.`,
+    'no-actors': `You've beaten Puzzle Master!\n\nEvery actor in this set is already on the board, so there's no one left to add.`,
+    error: `Something went wrong while composing level ${next}.\n\nPress Play Again to start a new game.`,
+  }[ui.gameOver.reason] ?? '';
+  const list = document.getElementById('movie-list');
+  list.innerHTML = '';
+  const div = document.createElement('div');
+  div.className   = 'game-over-msg';
+  div.textContent = msg;
+  list.appendChild(div);
 }
 
 // ── Movie panel ───────────────────────────────────────────────────────────────
@@ -354,19 +381,26 @@ export function renderControls(ui, snap = null) {
 
   if (!anyModal) {
     const level       = snap ? snap.level : 0;
+    const puzzle      = ui.mode === 'puzzle';
+    const btnMerge    = document.getElementById('btn-merge-titles');
     const btnMove     = document.getElementById('btn-move-actor');
     const btnDegrees  = document.getElementById('btn-see-degrees');
     const bankDisplay = document.getElementById('move-bank-display');
 
-    if (btnMove) btnMove.disabled = !(level >= 5 && (ui.moveBank > 0 || ui.movedActors.size > 0));
+    // Random Blind: moves are earned from level 5. Puzzle Master: given per level.
+    const movesAvailable = puzzle ? ui.puzzleK > 0 : level >= 5;
+    if (btnMerge) btnMerge.disabled = !!ui.gameOver;
+    if (btnMove) btnMove.disabled = !!ui.gameOver || !(movesAvailable && (ui.moveBank > 0 || ui.movedActors.size > 0));
     if (btnDegrees) {
-      btnDegrees.disabled    = !snap;
+      btnDegrees.disabled    = !snap || !!ui.gameOver;
       btnDegrees.textContent = ui.showDegrees ? 'Hide Degrees' : 'See Degrees';
     }
 
     if (bankDisplay) {
-      if (level >= 5) {
-        bankDisplay.textContent = `Actor Move Bank: ${ui.moveBank}`;
+      if (movesAvailable && !ui.gameOver) {
+        bankDisplay.textContent = puzzle
+          ? `Actor Moves: ${ui.moveBank} of ${ui.puzzleK}`
+          : `Actor Move Bank: ${ui.moveBank}`;
         bankDisplay.style.display = '';
       } else {
         bankDisplay.style.display = 'none';
@@ -388,7 +422,8 @@ export function renderAll(snap, ui = { mergeMode: false, mergeSelected: new Set(
     moviePanel.style.display = 'none';
   } else {
     moviePanel.style.display = '';
-    renderMovieList(snap, ui);
+    if (ui.gameOver) renderGameOver(ui);
+    else             renderMovieList(snap, ui);
   }
 
   renderControls(ui, snap);
