@@ -217,8 +217,9 @@ export function renderScoreBox(snap, ui) {
 function renderGameOver(ui) {
   const next = ui.gameOver.level + 1;
   const msg = {
-    exhausted: `You've beaten Puzzle Master!\n\nWe tried six different casts for level ${next} and couldn't compose one we could guarantee was solvable. Every level you played had a solution, and you found every one.`,
-    'no-actors': `You've beaten Puzzle Master!\n\nEvery actor in this set is already on the board, so there's no one left to add.`,
+    // 'no-actors' can't happen in practice (every set has far more than 100 actors).
+    exhausted:   `You have beaten the Puzzle Master!\n\nThe Puzzle Master can't make a solvable level with more actor monograms.`,
+    'no-actors': `You have beaten the Puzzle Master!\n\nThe Puzzle Master can't make a solvable level with more actor monograms.`,
     error: `Something went wrong while composing level ${next}.\n\nPress Play Again to start a new game.`,
   }[ui.gameOver.reason] ?? '';
   const list = document.getElementById('movie-list');

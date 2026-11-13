@@ -536,8 +536,8 @@ async function main() {
 
   // Puzzle Master replaces some tips' text; the animations stay the same.
   const PUZZLE_TIPS = {
-    8:  "Lifeline 2: You can move an actor monogram to a different square on the grid. In Puzzle Master, each level comes with enough actor moves to solve it- the number changes from level to level. (A clever solution may need fewer.) Unused moves don't carry over to the next level.",
-    11: "Every Puzzle Master level is guaranteed to be solvable. Eventually we won't be able to make a harder puzzle that we can guarantee- and at that point, you've won the game.",
+    8:  "Lifeline 2: You can move an actor monogram to a different square on the grid. In Puzzle Master, each level comes with enough actor moves to solve it- the number changes from level to level. (A clever solution may need fewer.) Unused moves don't carry forward to the next level.",
+    11: "Every Puzzle Master level is guaranteed to be solvable. Eventually the Puzzle Master won't be able to make a harder puzzle that it can guarantee- and at that point, you've won the game.",
   };
   const tipText = idx => (ui.mode === 'puzzle' && PUZZLE_TIPS[idx]) || TIPS[idx];
 
