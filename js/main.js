@@ -1,6 +1,7 @@
 import { loadData }   from './data.js';
 import { ActorGame }  from './game.js';
 import { PuzzleSource } from './puzzle-client.js';
+import { createRecorder } from './recorder.js';
 import {
   initCursor, moveCursor, setCursorColor,
   renderAll, renderGrid, renderMovieList, renderControls,
@@ -29,6 +30,11 @@ async function main() {
   }
   // Testing aid: ?pmsteps=20 gives the generator a tiny budget, forcing an early Game Over.
   const pmSteps = Number(new URLSearchParams(location.search).get('pmsteps')) || undefined;
+  // Testing aid: ?debug records Random Blind boards (see recorder.js).
+  const recorder = new URLSearchParams(location.search).has('debug') ? createRecorder() : null;
+  // Testing aid: ?debug&moves=3 gives Random Blind 3 fresh actor moves every level (no carry-over).
+  const fixedMoves = recorder ? Number(new URLSearchParams(location.search).get('moves')) || 0 : 0;
+  let currentSet = null;
 
   let puzzleSource = null;  // PuzzleSource while a Puzzle Master game is running
   let puzzleSolution = null; // known solution of the current Puzzle Master level
@@ -45,6 +51,7 @@ async function main() {
     pickMode:      true,
     showDegrees:   false,
     mode:          loadMode(),
+    fixedMoves,             // testing: Random Blind moves per level (0 = normal earned bank)
     puzzleK:       0,       // Puzzle Master: actor moves given this level
     composing:     false,   // Puzzle Master: waiting for the next level
     gameOver:      null,    // Puzzle Master: { level, reason } when no harder puzzle can be made
@@ -100,6 +107,7 @@ async function main() {
   const titleText = document.querySelector('#title-bar .title-text');
 
   function enterPickMode() {
+    if (game && ui.mode === 'random' && !ui.pickMode) recorder?.levelEnd(game, 'abandoned', ui.movedActors.size);
     game = null;
     gameToken++;
     puzzleSource?.dispose();
@@ -129,10 +137,13 @@ async function main() {
     if (token !== gameToken) return;
     titleText.textContent = `Ensembles: ${setName} · ${MODE_NAMES[ui.mode]}`;
 
+    currentSet = setName;
     if (ui.mode === 'random') {
       game = new ActorGame(raw);
       ui.pickMode = false;
+      if (fixedMoves) ui.moveBank = fixedMoves;
       render();
+      recorder?.levelStart(game, setName, ui.moveBank);
       return;
     }
 
@@ -190,6 +201,13 @@ async function main() {
   // Testing aid: ?debug exposes state for automated tests.
   if (new URLSearchParams(location.search).has('debug')) {
     window.__ensembles = { get game() { return game; }, get solution() { return puzzleSolution; }, ui, render };
+  }
+  if (recorder) {
+    recorder.mountButton();
+    // Closing the tab mid-level counts as abandoning it.
+    window.addEventListener('pagehide', () => {
+      if (game && ui.mode === 'random' && !ui.pickMode) recorder.levelEnd(game, 'abandoned', ui.movedActors.size);
+    });
   }
 
   // ── Tooltip ────────────────────────────────────────────────────────────────
@@ -482,6 +500,7 @@ async function main() {
       return;
     }
     if (e.target.id === 'btn-next-level') {
+      recorder?.levelEnd(game, 'passed', ui.movedActors.size);
       ui.roundTotal   += game.snapshot().score;
       ui.movedActors   = new Map();
       const ok = game.advanceLevel();
@@ -491,8 +510,10 @@ async function main() {
         return;
       }
       const newLevel = game.snapshot().level;
-      if (newLevel >= 5) ui.moveBank += 1;
+      if (fixedMoves)         ui.moveBank = fixedMoves;
+      else if (newLevel >= 5) ui.moveBank += 1;
       render();
+      recorder?.levelStart(game, currentSet, ui.moveBank);
     }
   });
 
@@ -515,7 +536,7 @@ async function main() {
 
   // Puzzle Master replaces some tips' text; the animations stay the same.
   const PUZZLE_TIPS = {
-    8:  "Lifeline 2: You can move an actor monogram to a different square on the grid. In Puzzle Master, each level comes with the actor moves it needs- none at first, then more as the levels get harder. (A clever solution may need fewer.) Unused moves don't carry over to the next level.",
+    8:  "Lifeline 2: You can move an actor monogram to a different square on the grid. In Puzzle Master, each level comes with enough actor moves to solve it- the number changes from level to level. (A clever solution may need fewer.) Unused moves don't carry over to the next level.",
     11: "Every Puzzle Master level is guaranteed to be solvable. Eventually we won't be able to make a harder puzzle that we can guarantee- and at that point, you've won the game.",
   };
   const tipText = idx => (ui.mode === 'puzzle' && PUZZLE_TIPS[idx]) || TIPS[idx];

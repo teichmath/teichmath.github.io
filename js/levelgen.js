@@ -8,6 +8,8 @@
  *   other actor square   cost 1   (−1 point)
  *   empty square         cost 0.5 per other color already there, + a small
  *                        step cost so regions stay compact
+ * An actor whose connection would cost a point or more (more than covering
+ * them earns) is left out of that movie's region, as a player might.
  *
  * Pure functions, no DOM: runs in the page, a Worker, or a test shell.
  * Scoring rules match ActorGame.score().
@@ -26,14 +28,6 @@ const NBR = Array.from({ length: GRID }, (_, i) => {
 });
 
 const STEP_COST = 0.02;
-
-// Actor moves given (= actors scrambled) at each Puzzle Master level.
-export function movesForLevel(level) {
-  if (level >= 14) return 3;
-  if (level >= 10) return 2;
-  if (level >= 5)  return 1;
-  return 0;
-}
 
 // Small seedable PRNG (mulberry32) so a level can be reproduced.
 export function makeRng(seed) {
@@ -109,6 +103,7 @@ const heap = new Heap();
 const dist = new Float64Array(GRID);
 const prev = new Int16Array(GRID);
 const costTab = new Float64Array(GRID);
+const pointTab = new Float64Array(GRID);   // score lost by adding a cell to the region
 const isLeft = new Uint8Array(GRID);
 
 // Route movie m as a Steiner tree into reg (cleared first), given cover from
@@ -121,8 +116,8 @@ function routeMovie(m, member, at, cover, reg, rng, jitter) {
 
   for (let c = 0; c < GRID; c++) {
     const a = at[c];
-    costTab[c] = a >= 0 ? (member[a][m] ? 0 : 1)
-                        : 0.5 * cover[c] + STEP_COST + (jitter ? rng() * jitter : 0);
+    pointTab[c] = a >= 0 ? (member[a][m] ? 0 : 1) : 0.5 * cover[c];
+    costTab[c]  = a >= 0 ? pointTab[c] : pointTab[c] + STEP_COST + (jitter ? rng() * jitter : 0);
   }
 
   const first = terms[Math.floor(rng() * terms.length)];
@@ -145,6 +140,11 @@ function routeMovie(m, member, at, cover, reg, rng, jitter) {
         if (nd < dist[y]) { dist[y] = nd; prev[y] = x; heap.push(nd, y); }
       }
     }
+    if (hit < 0) break;
+    // Leave this actor out if connecting them costs at least the point they'd earn.
+    let lost = 0;
+    for (let x = prev[hit]; !reg[x]; x = prev[x]) lost += pointTab[x];
+    if (lost >= 1) { isLeft[hit] = 0; left--; continue; }
     for (let x = hit; !reg[x]; x = prev[x]) {
       reg[x] = 1;
       if (isLeft[x]) { isLeft[x] = 0; left--; }
@@ -170,14 +170,21 @@ function reroute(ms, member, at, regions, cover, rng, jitter) {
  * Search for a passing layout.
  *   member: number[nActors][nMovies] of 0/1 (ActorGame actor.activeBits)
  *   goal:   pass threshold (ActorGame.minGoal())
- * Options: maxSteps, stepsPerRestart, t0, t1, rng.
- * Returns { ok, steps, positions (cell per actor), regions (cell lists per movie), score }.
+ * Options: maxSteps, stepsPerRestart, t0, t1, rng,
+ *   positions: fixed actor positions (cell per actor) — only regions are searched.
+ *   start:     starting actor positions; actors may move, but each actor away
+ *              from its start square costs movePenalty points in the search,
+ *              and no more than maxMoved actors may be away at once.
+ * Returns { ok, steps, positions (cell per actor), regions (cell lists per movie), score, moved }.
  */
 export function generateLayout(member, goal, opts = {}) {
   const {
     maxSteps = 100000, stepsPerRestart = 10000,
-    t0 = 1.5, t1 = 0.05, rng = Math.random,
+    t0 = 1.5, t1 = 0.05, rng = Math.random, positions = null,
+    start = null, movePenalty = 1, maxMoved = Infinity,
   } = opts;
+  const fixedStart = positions || start;
+  const penalty = start ? movePenalty : 0;
   const n = member.length, nm = n ? member[0].length : 0;
   const moviesOf = member.map(row => row.flatMap((b, m) => (b ? [m] : [])));
 
@@ -186,32 +193,60 @@ export function generateLayout(member, goal, opts = {}) {
   const regions = Array.from({ length: nm }, () => new Uint8Array(GRID));
   const saved = Array.from({ length: nm }, () => new Uint8Array(GRID));
   const allMovies = Array.from({ length: nm }, (_, m) => m);
+  const posOf = new Int16Array(n);   // actor -> cell, refreshed before repair moves
 
-  let steps = 0, s = 0;
+  // Actors away from their start square
+  const moved = () => {
+    if (!start) return 0;
+    let d = 0;
+    for (let c = 0; c < GRID; c++) if (at[c] >= 0 && start[at[c]] !== c) d++;
+    return d;
+  };
+  const passes = () => s >= goal && d <= maxMoved;
+
+  let steps = 0, s = 0, d = 0;
   while (steps < maxSteps) {
-    // Fresh random start
+    // Fresh start: given positions, or random
     at.fill(-1);
-    const cells = Array.from({ length: GRID }, (_, i) => i);
-    for (let a = 0; a < n; a++) {
-      const j = a + Math.floor(rng() * (GRID - a));
-      [cells[a], cells[j]] = [cells[j], cells[a]];
-      at[cells[a]] = a;
+    if (fixedStart) {
+      fixedStart.forEach((c, a) => { at[c] = a; });
+    } else {
+      const cells = Array.from({ length: GRID }, (_, i) => i);
+      for (let a = 0; a < n; a++) {
+        const j = a + Math.floor(rng() * (GRID - a));
+        [cells[a], cells[j]] = [cells[j], cells[a]];
+        at[cells[a]] = a;
+      }
     }
     for (const reg of regions) reg.fill(0);
     cover.fill(0);
     reroute(allMovies, member, at, regions, cover, rng, 0);
     s = scoreOf(member, at, regions, cover);
+    d = moved();
 
     for (let step = 0; step < stepsPerRestart && steps < maxSteps; step++) {
-      if (s >= goal) return finish();
+      if (passes()) return finish();
       steps++;
       const T = t0 * Math.pow(t1 / t0, step / stepsPerRestart);
 
       let touched, src = -1, dst = -1;
-      if (rng() < 0.6) {
-        // Relocate an actor (swap if the destination is occupied)
-        do { src = Math.floor(rng() * GRID); } while (at[src] < 0);
-        dst = Math.floor(rng() * GRID);
+      if (!positions && rng() < 0.6) {
+        if (start) {
+          // Repair: when the move allowance is used up, only move actors already
+          // away from home; sometimes send one straight back home.
+          for (let c = 0; c < GRID; c++) if (at[c] >= 0) posOf[at[c]] = c;
+          const away = [];
+          for (let a = 0; a < n; a++) if (posOf[a] !== start[a]) away.push(a);
+          const pool = d >= maxMoved ? away : null;
+          if (pool && !pool.length) continue;
+          const a = pool ? pool[Math.floor(rng() * pool.length)] : Math.floor(rng() * n);
+          src = posOf[a];
+          dst = src !== start[a] && rng() < 0.3 ? start[a] : Math.floor(rng() * GRID);
+        } else {
+          // Relocate an actor (swap if the destination is occupied)
+          do { src = Math.floor(rng() * GRID); } while (at[src] < 0);
+          dst = Math.floor(rng() * GRID);
+        }
         if (src === dst) continue;
         const a = at[src], b = at[dst];
         const set = new Set(moviesOf[a]);
@@ -220,6 +255,7 @@ export function generateLayout(member, goal, opts = {}) {
         touched = [...set];
         for (const m of touched) saved[m].set(regions[m]);
         at[src] = b; at[dst] = a;
+        if (start && moved() > maxMoved) { at[src] = a; at[dst] = b; continue; }
         rebuildCover(at, regions, cover);
         reroute(touched, member, at, regions, cover, rng, 0);
       } else {
@@ -230,15 +266,17 @@ export function generateLayout(member, goal, opts = {}) {
       }
 
       const s2 = scoreOf(member, at, regions, cover);
-      if (s2 >= s || rng() < Math.exp((s2 - s) / T)) {
-        s = s2;
+      const d2 = src >= 0 ? moved() : d;
+      const gain = (s2 - penalty * d2) - (s - penalty * d);
+      if (gain >= 0 || rng() < Math.exp(gain / T)) {
+        s = s2; d = d2;
       } else {
         if (src >= 0) { const t = at[src]; at[src] = at[dst]; at[dst] = t; }
         for (const m of touched) regions[m].set(saved[m]);
         rebuildCover(at, regions, cover);
       }
     }
-    if (s >= goal) return finish();
+    if (passes()) return finish();
   }
   return { ok: false, steps };
 
@@ -246,26 +284,25 @@ export function generateLayout(member, goal, opts = {}) {
     const positions = new Array(n);
     for (let c = 0; c < GRID; c++) if (at[c] >= 0) positions[at[c]] = c;
     return {
-      ok: true, steps, score: s, positions,
+      ok: true, steps, score: s, positions, moved: d,
       regions: regions.map(reg => { const l = []; for (let c = 0; c < GRID; c++) if (reg[c]) l.push(c); return l; }),
     };
   }
 }
 
-// Move k distinct actors to random empty squares. Returns new positions.
-export function scramble(positions, k, rng = Math.random) {
-  const out = positions.slice();
-  const occupied = new Set(out);
-  const order = out.map((_, a) => a);
-  for (let i = order.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [order[i], order[j]] = [order[j], order[i]];
+/**
+ * Repair a dealt board: find a passing layout that moves as few actors as
+ * possible from `start` (at most maxMoved). After a success with d moves,
+ * retries with d-1 until that fails. Returns the best generateLayout result
+ * (with .moved), or { ok: false }.
+ */
+export function repairBoard(member, goal, start, maxMoved, opts = {}) {
+  let best = { ok: false };
+  for (let cap = maxMoved; cap >= 0; cap--) {
+    const res = generateLayout(member, goal, { movePenalty: 0.5, ...opts, start, maxMoved: cap });
+    if (!res.ok) break;
+    best = res;
+    cap = res.moved;   // loop decrement tries one fewer
   }
-  for (const a of order.slice(0, Math.min(k, out.length))) {
-    let c;
-    do { c = Math.floor(rng() * GRID); } while (occupied.has(c));
-    occupied.add(c);       // the vacated square stays blocked, so no actor lands back on a start square
-    out[a] = c;
-  }
-  return out;
+  return best;
 }

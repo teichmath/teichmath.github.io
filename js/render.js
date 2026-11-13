@@ -388,7 +388,7 @@ export function renderControls(ui, snap = null) {
     const bankDisplay = document.getElementById('move-bank-display');
 
     // Random Blind: moves are earned from level 5. Puzzle Master: given per level.
-    const movesAvailable = puzzle ? ui.puzzleK > 0 : level >= 5;
+    const movesAvailable = puzzle ? ui.puzzleK > 0 : (ui.fixedMoves > 0 || level >= 5);
     if (btnMerge) btnMerge.disabled = !!ui.gameOver;
     if (btnMove) btnMove.disabled = !!ui.gameOver || !(movesAvailable && (ui.moveBank > 0 || ui.movedActors.size > 0));
     if (btnDegrees) {
