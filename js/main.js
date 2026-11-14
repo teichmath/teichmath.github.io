@@ -88,8 +88,8 @@ async function main() {
     const modeBtn = mode =>
       `<button class="mac-btn picker-mode${ui.mode === mode ? ' selected' : ''}" data-mode="${mode}">${MODE_NAMES[mode]}</button>`;
     const modeDesc = ui.mode === 'puzzle'
-      ? 'Every level is guaranteed solvable, with the actor moves it needs. Play until no harder puzzle can be made.'
-      : 'Actors land wherever they land. Levels get harder until they’re impossible, and you decide when to stop.';
+      ? 'Solutions guaranteed to exist on every level.'
+      : 'Will eventually become unsolvable.';
     document.getElementById('movie-list').innerHTML = `
       <div class="picker-prompt">Choose a mode:</div>
       <div class="picker-modes">${modeBtn('random')}${modeBtn('puzzle')}</div>
